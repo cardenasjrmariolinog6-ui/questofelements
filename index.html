@@ -1,0 +1,3062 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Quest of Elements: RPG Edition</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
+        * { -webkit-tap-highlight-color: transparent; outline: none; box-sizing: border-box; }
+        html, body {
+            margin: 0; padding: 0; background: #1a1a2e; overflow: hidden;
+            font-family: 'VT323', monospace; height: 100%; width: 100%;
+            user-select: none; -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        #app { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+        input, textarea { user-select: auto !important; -webkit-user-select: auto !important; touch-action: auto !important; }
+
+        #game-canvas { display: block; image-rendering: pixelated; background: #2980b9; position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+        .ui-box {
+            background: #fff; border: 4px solid #333;
+            box-shadow: inset -4px -4px 0 #999, inset 4px 4px 0 #eee;
+            color: #333; padding: 10px;
+        }
+
+        .hud-top {
+            position: absolute; top: 10px; left: 10px; right: 10px;
+            display: flex; justify-content: space-between; gap: 10px;
+            pointer-events: none; z-index: 10;
+        }
+        .quest-box { flex: 1; max-width: 200px; }
+        .stats-box { flex: 0 0 auto; min-width: 130px; text-align: right; }
+
+        .action-bar {
+            position: absolute; bottom: 20px; right: 20px;
+            display: flex; flex-direction: column; gap: 12px; z-index: 60;
+            pointer-events: auto;
+        }
+        .btn-circle {
+            width: 70px; height: 70px; background: #fff; border: 4px solid #333;
+            border-radius: 50%; display: flex; flex-direction: column; justify-content: center; align-items: center;
+            font-size: 14px; font-family: 'VT323', monospace; font-weight: bold;
+            box-shadow: 0 5px 0 #999; cursor: pointer;
+            text-align: center; transition: transform 0.1s, box-shadow 0.1s;
+            pointer-events: auto; user-select: none; -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn-circle:active, .btn-circle.pressed { transform: translateY(4px); box-shadow: 0 1px 0 #999; }
+
+        #btnA {
+            width: 80px; height: 80px; background: #e74c3c; color: #fff;
+            border: 5px solid #333; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 24px; font-family: 'VT323', monospace; font-weight: bold;
+            box-shadow: 0 6px 0 #c0392b;
+            cursor: pointer; position: absolute; bottom: 40px; right: 100px;
+            z-index: 60; transition: transform 0.1s, background 0.3s, box-shadow 0.1s;
+            pointer-events: auto; user-select: none; -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        #btnA:active, #btnA.pressed { transform: translateY(4px); box-shadow: 0 2px 0 #c0392b; }
+        #btnA.disabled { background: #95a5a6; box-shadow: 0 6px 0 #7f8c8d; opacity: 0.7; }
+        #btnA.pulse { animation: pulseBtn 2s infinite; }
+
+        @keyframes pulseBtn {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(241, 196, 15, 0.7), 0 6px 0 #c0392b; }
+            50% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(241, 196, 15, 0), 0 6px 0 #c0392b; }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(241, 196, 15, 0.7), 0 6px 0 #c0392b; }
+        }
+
+        #guideArrow, #boatArrow, #returnArrow, #bossArrow, #extraBoatArrow {
+            position: absolute; width: 50px; height: 65px;
+            z-index: 10; pointer-events: none; transition: transform 0.2s;
+            display: none; flex-direction: column; align-items: center; justify-content: flex-start;
+        }
+        .arrow-label {
+            font-size: 12px; font-weight: bold; color: white; margin-top: 4px;
+            text-shadow: 1px 1px 2px black;
+            background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;
+            white-space: nowrap; transform: rotate(0deg) !important;
+            font-family: 'VT323', monospace;
+        }
+        #guideArrow { top: 110px; left: 20px; filter: drop-shadow(0 0 8px rgba(241, 196, 15, 0.6)); display: flex; }
+        #boatArrow { top: 175px; left: 20px; filter: drop-shadow(0 0 8px rgba(46, 204, 113, 0.6)); }
+        #returnArrow { top: 240px; left: 20px; filter: drop-shadow(0 0 8px rgba(52, 152, 219, 0.6)); }
+        #bossArrow { top: 305px; left: 20px; filter: drop-shadow(0 0 8px rgba(231, 76, 60, 0.6)); }
+        #extraBoatArrow { top: 370px; left: 20px; filter: drop-shadow(0 0 8px rgba(155, 89, 182, 0.6)); }
+
+        @keyframes arrow-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+        @keyframes tutFadeIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+        #tutorialIntro { position:absolute;top:0;left:0;width:100%;height:100%;z-index:500;display:none; }
+        #tutCanvas { display:block;width:100%;height:100%; }
+        #tutDialog {
+            position:absolute;bottom:0;left:0;right:0;
+            background:linear-gradient(180deg,rgba(10,10,30,0.92) 0%,rgba(5,5,20,0.98) 100%);
+            border-top:3px solid #7f00ff;
+            padding:16px 18px 18px;
+            font-family:'VT323',monospace;
+            box-shadow:0 -8px 30px rgba(127,0,255,0.3);
+        }
+        #tutSpeaker {
+            font-size:17px;font-weight:bold;color:#a855f7;
+            margin-bottom:8px;letter-spacing:1px;
+            text-shadow:0 0 10px rgba(168,85,247,0.8);
+        }
+        #tutText {
+            font-size:21px;color:#e8e8ff;line-height:1.35;
+            min-height:58px;text-shadow:1px 1px 2px rgba(0,0,0,0.8);
+        }
+        #tutFooter {
+            display:flex;justify-content:space-between;align-items:center;
+            margin-top:10px;
+        }
+        #tutStep { font-size:15px;color:#6c6c9c; }
+        #tutContinue {
+            font-size:17px;color:#a855f7;font-weight:bold;
+            animation:blink 1.1s infinite;display:none;
+        }
+        #tutSkip {
+            position:absolute;top:14px;right:14px;
+            background:rgba(0,0,0,0.55);color:rgba(255,255,255,0.7);
+            border:2px solid rgba(255,255,255,0.2);
+            padding:6px 14px;font-family:'VT323',monospace;font-size:16px;
+            border-radius:20px;cursor:pointer;z-index:10;pointer-events:auto;
+        }
+        #tutSkip:active{opacity:0.6;}
+
+        .arrow-body {
+            width: 0; height: 0;
+            border-left: 15px solid transparent; border-right: 15px solid transparent;
+            border-bottom: 30px solid #f1c40f;
+            position: relative; animation: arrow-bounce 1s infinite;
+        }
+        .arrow-body::after {
+            content: ''; position: absolute; top: 28px; left: -8px;
+            width: 16px; height: 12px; background: #f1c40f;
+        }
+        .boat-arrow-body {
+            width: 0; height: 0;
+            border-left: 15px solid transparent; border-right: 15px solid transparent;
+            border-bottom: 30px solid var(--arrow-color, #2ecc71);
+            position: relative; animation: arrow-bounce 1s infinite;
+        }
+        .boat-arrow-body::after {
+            content: ''; position: absolute; top: 28px; left: -8px;
+            width: 16px; height: 12px; background: var(--arrow-color, #2ecc71);
+        }
+        .return-arrow-body {
+            width: 0; height: 0;
+            border-left: 15px solid transparent; border-right: 15px solid transparent;
+            border-bottom: 30px solid #3498db;
+            position: relative; animation: arrow-bounce 1s infinite;
+        }
+        .return-arrow-body::after {
+            content: ''; position: absolute; top: 28px; left: -8px;
+            width: 16px; height: 12px; background: #3498db;
+        }
+        @keyframes pulse-ready {
+            0%, 100% { filter: drop-shadow(0 0 5px #2ecc71); transform: scale(1); }
+            50% { filter: drop-shadow(0 0 20px #2ecc71); transform: scale(1.2); }
+        }
+        .pulse-ready { animation: pulse-ready 1.5s infinite !important; }
+        .boss-arrow-body {
+            width: 0; height: 0;
+            border-left: 15px solid transparent; border-right: 15px solid transparent;
+            border-bottom: 30px solid #e74c3c;
+            position: relative; animation: arrow-bounce 1s infinite;
+        }
+        .boss-arrow-body::after {
+            content: ''; position: absolute; top: 28px; left: -8px;
+            width: 16px; height: 12px; background: #e74c3c;
+        }
+        .extra-boat-arrow-body {
+            width: 0; height: 0;
+            border-left: 15px solid transparent; border-right: 15px solid transparent;
+            border-bottom: 30px solid #9b59b6;
+            position: relative; animation: arrow-bounce 1s infinite;
+        }
+        .extra-boat-arrow-body::after {
+            content: ''; position: absolute; top: 28px; left: -8px;
+            width: 16px; height: 12px; background: #9b59b6;
+        }
+
+        .screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+            background: rgba(0,0,0,0.85); z-index: 100;
+            opacity: 0; pointer-events: auto; overflow-y: auto;
+        }
+        .screen.active { display: flex; opacity: 1; }
+        @keyframes screenFade {
+            from { opacity: 0; transform: scale(0.98); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .screen.active { animation: screenFade 0.3s forwards; }
+
+        .paper {
+            background: rgba(253, 245, 230, 0.97);
+            padding: 24px; width: 90%; max-width: 420px; color: #5d4037;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+            border-radius: 4px; border-left: 12px solid rgba(210, 180, 140, 0.6);
+            max-height: 90vh; overflow-y: auto;
+        }
+
+        .item-grid {
+            display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px;
+            margin-top: 12px; max-height: 350px; overflow-y: auto; padding: 8px;
+            background: rgba(0,0,0,0.03); border-radius: 8px;
+        }
+        .grid-slot {
+            aspect-ratio: 1; border: 2px dashed #d2b48c; border-radius: 4px;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            font-size: 16px; background: rgba(255,255,255,0.4);
+            font-weight: bold; line-height: 1; text-align: center; font-family: 'VT323', monospace;
+        }
+        .grid-slot.filled { border: 2px solid #5d4037; background: #fff; }
+
+        #mapContainer {
+            width: 100%; aspect-ratio: 1; background: #2471a3;
+            border: 5px solid #333; position: relative; overflow: hidden; border-radius: 8px;
+        }
+        #mapCanvas { width: 100%; height: 100%; image-rendering: pixelated; }
+
+        .slot-btn {
+            flex-grow: 1; padding: 14px; margin: 0;
+            text-align: left; display: flex; flex-direction: column;
+            font-family: 'VT323', monospace; font-size: 17px; border: 4px solid #333;
+            background: #fff; color: #333; font-weight: bold; cursor: pointer;
+            box-shadow: 0 5px 0 #999; border-radius: 6px;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .slot-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #999; background: #eee; }
+        .delete-btn {
+            width: 56px; height: 56px; background: #e74c3c; color: white;
+            display: flex; align-items: center; justify-content: center;
+            border: 4px solid #333; border-radius: 6px; box-shadow: 0 5px 0 #c0392b;
+            font-size: 22px; cursor: pointer; flex-shrink: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .delete-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #c0392b; }
+        .slot-row { display: flex; gap: 8px; align-items: flex-start; }
+
+        button {
+            padding: 12px 16px; font-family: 'VT323', monospace; font-size: 18px;
+            border: 4px solid #333; background: #fff; color: #333; font-weight: bold;
+            cursor: pointer; box-shadow: 0 5px 0 #999; border-radius: 6px; width: 100%;
+            -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+        }
+        button:active { transform: translateY(3px); box-shadow: 0 2px 0 #999; background: #eee; }
+
+        .dialog-box {
+            position: absolute; bottom: 20px; left: 10px; right: 10px; min-height: 90px;
+            z-index: 200; display: none; background: #fff; border: 5px solid #333;
+            padding: 16px; box-shadow: 0 -5px 15px rgba(0,0,0,0.4); border-radius: 8px;
+            font-family: 'VT323', monospace;
+        }
+
+        .joystick-base {
+            position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px;
+            background: rgba(255,255,255,0.15); border-radius: 50%;
+            border: 3px solid rgba(255,255,255,0.3);
+            z-index: 50; touch-action: none; cursor: grab;
+        }
+        .joystick-knob {
+            position: absolute; top: 30px; left: 30px; width: 60px; height: 60px;
+            background: rgba(255,255,255,0.9); border-radius: 50%;
+            border: 4px solid #333; box-shadow: 0 4px 0 rgba(0,0,0,0.2);
+            pointer-events: none;
+        }
+
+        .xp-bar-container { width: 100%; height: 8px; background: #eee; border: 2px solid #333; margin-top: 5px; overflow: hidden; }
+        .xp-bar-fill { height: 100%; background: #2ecc71; width: 0%; transition: width 0.5s; }
+
+        .menu-btn {
+            width: 44px; height: 44px; background: #fff; border: 4px solid #333;
+            display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 5px;
+            cursor: pointer; pointer-events: auto; border-radius: 6px; box-shadow: 0 4px 0 #999;
+            z-index: 70; -webkit-tap-highlight-color: transparent; flex-shrink: 0;
+        }
+        .menu-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #999; }
+        .menu-btn div { width: 24px; height: 4px; background: #333; border-radius: 2px; }
+
+        .start-container {
+            position: relative; width: 100%; height: 100%;
+            display: flex; justify-content: center; align-items: center;
+            overflow: hidden; background: radial-gradient(circle, #2c3e50 0%, #000 100%);
+        }
+        .element-card {
+            width: 280px; background: #fff; border: 6px solid #333;
+            padding: 24px; position: relative; z-index: 10;
+            box-shadow: 0 0 40px rgba(52, 152, 219, 0.6);
+            text-align: center; border-radius: 4px;
+            background-image: linear-gradient(135deg, #fff 0%, #f0f0f0 100%);
+            pointer-events: auto;
+        }
+        .bg-element {
+            position: absolute; width: 60px; height: 60px; border: 2px solid rgba(255,255,255,0.2);
+            color: rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center;
+            font-weight: bold; font-size: 20px; border-radius: 4px; font-family: 'VT323', monospace;
+            animation: float-bg 15s linear infinite;
+            pointer-events: none; z-index: 1;
+        }
+        @keyframes float-bg {
+            0% { transform: translateY(110vh) rotate(0deg); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(-10vh) rotate(360deg); opacity: 0; }
+        }
+
+        #fadeOverlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 1000; pointer-events: none;
+            opacity: 0; transition: opacity 0.5s;
+        }
+
+        .dialog-btn-row { display: flex; gap: 10px; margin-top: 10px; }
+        .dialog-btn-row button { flex: 1; }
+
+        /* ===== ALCHEMY LAB ===== */
+        #alchemy {
+            background: radial-gradient(ellipse at center, #0d1b2a 0%, #000 100%);
+        }
+        .lab-paper {
+            background: linear-gradient(135deg, #1a0533 0%, #0d1b2a 100%);
+            border: 3px solid #7f00ff; border-radius: 8px;
+            width: 92%; max-width: 460px; max-height: 92vh;
+            overflow-y: auto; padding: 18px;
+            box-shadow: 0 0 40px rgba(127,0,255,0.5), 0 0 80px rgba(127,0,255,0.2);
+            color: #e0e0ff;
+        }
+        .lab-title {
+            font-family: 'VT323', monospace; font-size: 26px; color: #c39bd3;
+            text-align: center; letter-spacing: 3px; margin-bottom: 4px;
+            text-shadow: 0 0 10px #7f00ff;
+        }
+        .lab-subtitle { font-family: 'VT323', monospace; font-size: 14px; color: #7f8c8d; text-align: center; margin-bottom: 14px; }
+        .combine-row {
+            display: flex; align-items: center; justify-content: center;
+            gap: 8px; margin-bottom: 14px; flex-wrap: wrap;
+        }
+        .combine-slot {
+            width: 68px; height: 68px; border: 3px dashed #7f00ff;
+            border-radius: 8px; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; font-family: 'VT323', monospace;
+            font-size: 22px; cursor: pointer; position: relative;
+            background: rgba(127,0,255,0.1); transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .combine-slot.filled { border-color: #c39bd3; background: rgba(195,155,211,0.15); }
+        .combine-slot .slot-sym { font-size: 26px; font-weight: bold; color: #fff; }
+        .combine-slot .slot-name { font-size: 10px; color: #c39bd3; line-height: 1; }
+        .combine-slot .slot-clear {
+            position: absolute; top: -8px; right: -8px;
+            width: 20px; height: 20px; background: #e74c3c; border-radius: 50%;
+            font-size: 14px; display: none; align-items: center; justify-content: center;
+            cursor: pointer; color: #fff; font-weight: bold; border: 2px solid #fff;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .combine-slot.filled .slot-clear { display: flex; }
+        .plus-sign { font-size: 28px; color: #7f00ff; font-family: 'VT323', monospace; }
+
+        #btnSynth {
+            display: block; width: 100%; padding: 14px;
+            font-family: 'VT323', monospace; font-size: 22px;
+            background: linear-gradient(135deg, #7f00ff, #c39bd3);
+            border: 3px solid #fff; border-radius: 8px; color: #fff;
+            cursor: pointer; letter-spacing: 2px; margin-bottom: 14px;
+            box-shadow: 0 0 15px rgba(127,0,255,0.5);
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        #btnSynth:active { opacity: 0.7; transform: scale(0.97); }
+
+        #reactionResult {
+            display: none; border: 3px solid #7f00ff; border-radius: 8px;
+            padding: 14px; margin-bottom: 14px; text-align: center;
+            background: rgba(0,0,0,0.4);
+        }
+        #reactionResult .result-emoji { font-size: 52px; display: block; margin-bottom: 4px; }
+        #reactionResult .result-name { font-family: 'VT323', monospace; font-size: 26px; color: #f1c40f; }
+        #reactionResult .result-formula { font-family: 'VT323', monospace; font-size: 18px; color: #c39bd3; margin: 2px 0; }
+        #reactionResult .result-desc { font-family: 'VT323', monospace; font-size: 15px; color: #aaa; line-height: 1.3; }
+        #reactionResult.success { border-color: #2ecc71; animation: glow-success 0.6s ease; }
+        #reactionResult.fail { border-color: #e74c3c; }
+        @keyframes glow-success {
+            0% { box-shadow: 0 0 0 rgba(46,204,113,0); }
+            50% { box-shadow: 0 0 30px rgba(46,204,113,0.8); }
+            100% { box-shadow: 0 0 0 rgba(46,204,113,0); }
+        }
+
+        .lab-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+        .lab-tab {
+            flex: 1; padding: 8px; font-family: 'VT323', monospace; font-size: 16px;
+            background: rgba(127,0,255,0.2); border: 2px solid #7f00ff;
+            border-radius: 6px; color: #c39bd3; cursor: pointer; text-align: center;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .lab-tab.active { background: rgba(127,0,255,0.6); color: #fff; }
+
+        .lab-element-grid {
+            display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px;
+            max-height: 200px; overflow-y: auto; padding: 4px;
+        }
+        .lab-el-btn {
+            aspect-ratio: 1; border: 2px solid #555; border-radius: 6px;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            font-family: 'VT323', monospace; font-size: 16px; cursor: pointer;
+            background: rgba(255,255,255,0.05); transition: all 0.15s;
+            -webkit-tap-highlight-color: transparent; line-height: 1;
+        }
+        .lab-el-btn:active { transform: scale(0.92); }
+        .lab-el-btn span { font-size: 9px; color: #aaa; }
+        .lab-el-btn.selected { border-color: #f1c40f; background: rgba(241,196,15,0.2); }
+
+        .recipe-list { max-height: 220px; overflow-y: auto; }
+        .recipe-entry {
+            display: flex; align-items: center; gap: 10px; padding: 8px;
+            border-bottom: 1px solid rgba(127,0,255,0.2); font-family: 'VT323', monospace;
+        }
+        .recipe-entry .re-emoji { font-size: 24px; }
+        .recipe-entry .re-info { flex: 1; }
+        .recipe-entry .re-name { font-size: 18px; color: #f1c40f; }
+        .recipe-entry .re-formula { font-size: 14px; color: #7f8c8d; }
+        .recipe-entry.locked { opacity: 0.3; }
+        .recipe-entry.locked .re-name { color: #555; }
+        .recipe-discovered {
+            font-family: 'VT323', monospace; font-size: 14px; color: #7f8c8d;
+            text-align: center; margin-bottom: 8px;
+        }
+
+        #btnLab {
+            width: 70px; height: 70px; background: linear-gradient(135deg, #1a0533, #2c0066);
+            border: 4px solid #7f00ff; border-radius: 50%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            font-size: 11px; font-family: 'VT323', monospace; font-weight: bold;
+            box-shadow: 0 5px 0 #4a0080, 0 0 15px rgba(127,0,255,0.4);
+            cursor: pointer; color: #c39bd3; text-align: center;
+            transition: transform 0.1s, box-shadow 0.1s;
+            pointer-events: auto; user-select: none; -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        #btnLab:active { transform: translateY(4px); box-shadow: 0 1px 0 #4a0080; }
+        #btnLab .lab-icon { font-size: 20px; }
+        @keyframes labPulse {
+            0%, 100% { box-shadow: 0 5px 0 #4a0080, 0 0 10px rgba(127,0,255,0.3); }
+            50% { box-shadow: 0 5px 0 #4a0080, 0 0 25px rgba(127,0,255,0.8); }
+        }
+        #btnLab.ready { animation: labPulse 2s infinite; }
+
+        /* Nuclear/explosion flash overlay */
+        #reactionFlash {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 999; opacity: 0; transition: opacity 0.1s;
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <canvas id="game-canvas"></canvas>
+
+    <div class="hud-top">
+        <div class="menu-btn" id="menuBtn">
+            <div></div><div></div><div></div>
+        </div>
+        <div class="ui-box quest-box">
+            <div id="questStatus" style="font-weight: bold; font-size: 16px; font-family:'VT323',monospace;">AGUARDANDO...</div>
+            <div id="currentIsland" style="font-size: 13px; color: #d35400; margin-top: 2px; font-family:'VT323',monospace;">📍 MAR ABERTO</div>
+            <div class="xp-bar-container" style="height: 6px; margin-top: 5px;"><div id="islandXp" class="xp-bar-fill"></div></div>
+        </div>
+        <div class="ui-box stats-box">
+            <div style="display: flex; justify-content: flex-end; align-items: center; gap: 5px;">
+                <div id="playerNameDisplay" style="font-weight: bold; font-size: 16px; font-family:'VT323',monospace;">PLAYER</div>
+                <span style="background: #333; color: #fff; padding: 2px 8px; border-radius: 8px; font-size: 13px; font-family:'VT323',monospace;"><span id="collectCount">0</span>/118</span>
+            </div>
+            <div style="font-size: 14px; margin-top: 2px; color: #7f8c8d; font-family:'VT323',monospace;">NÍVEL <span id="lvl" style="color: #2c3e50; font-weight: bold;">1</span></div>
+            <div class="xp-bar-container" style="height: 4px; margin-top: 3px; width: 60px; margin-left: auto;"><div id="playerXpFill" class="xp-bar-fill" style="background: #3498db;"></div></div>
+        </div>
+    </div>
+
+    <!-- Arrow indicators -->
+    <div id="guideArrow">
+        <div class="arrow-body"></div>
+        <div class="arrow-label">ELEMENTO</div>
+    </div>
+    <div id="boatArrow" style="display:none;">
+        <div class="boat-arrow-body"></div>
+        <div class="arrow-label">BARCO</div>
+    </div>
+    <div id="returnArrow" style="display:none;">
+        <div class="return-arrow-body"></div>
+        <div class="arrow-label">VOLTAR</div>
+    </div>
+    <div id="bossArrow" style="display:none;">
+        <div class="boss-arrow-body"></div>
+        <div class="arrow-label">CHEFE</div>
+    </div>
+    <div id="extraBoatArrow" style="display:none;">
+        <div class="extra-boat-arrow-body"></div>
+        <div class="arrow-label">BARCO</div>
+    </div>
+
+    <!-- Action buttons -->
+    <div class="action-bar">
+        <div class="btn-circle" id="btnMap">MAPA</div>
+        <div class="btn-circle" id="btnItems">ITENS</div>
+        <div id="btnLab"><span class="lab-icon">⚗️</span>LAB</div>
+    </div>
+
+    <div id="btnA" class="disabled">OK</div>
+
+    <!-- START SCREEN -->
+    <div class="screen active" id="start">
+        <div class="start-container" id="startContainer">
+            <div class="element-card">
+                <div style="position:absolute; top:12px; left:15px; font-size:26px; font-weight:bold; color:#2c3e50; font-family:'VT323',monospace;">30</div>
+                <h1 style="margin: 0; font-size: 34px; color: #2c3e50; font-family:'VT323',monospace;">ELEMENTS</h1>
+                <p style="font-size: 14px; color: #7f8c8d; margin: 0 0 15px; font-family:'VT323',monospace;">QUEST OF THE ALCHEMIST</p>
+                <input id="nameInput" type="text" placeholder="DIGITE SEU NOME" maxlength="12"
+                    style="width:100%; padding:10px; text-align:center; font-family:'VT323',monospace; border:3px solid #333; margin-bottom:10px; border-radius: 4px; font-size: 18px; background: #f9f9f9;">
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <button id="btnNewGame" style="background: #2ecc71; color: white;">NOVO JOGO</button>
+                    <button id="btnLoadGame" style="background: #3498db; color: white;">CARREGAR JOGO</button>
+                    <button id="btnSettings" style="background: #95a5a6; color: white;">OPÇÕES</button>
+                </div>
+                <div style="margin-top: 15px; font-size: 12px; color: #bdc3c7; font-family:'VT323',monospace;">v1.3.0 - Fixed Edition</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TUTORIAL INTRO -->
+    <div id="tutorialIntro">
+        <canvas id="tutCanvas"></canvas>
+        <button id="tutSkip">PULAR INTRO</button>
+        <div id="tutDialog">
+            <div id="tutSpeaker">DR. ÁTOMO</div>
+            <div id="tutText"></div>
+            <div id="tutFooter">
+                <div id="tutStep"></div>
+                <div id="tutContinue">TOQUE PARA CONTINUAR ▶</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLOT SELECTION SCREEN -->
+    <div class="screen" id="slotSelection">
+        <div class="paper" style="max-width: 320px; text-align: center;">
+            <h2 id="slotTitle" style="margin: 0 0 20px; border-bottom: 3px solid #333; padding-bottom: 10px; font-family:'VT323',monospace;">ESCOLHER SLOT</h2>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <div class="slot-row">
+                    <button class="slot-btn" id="slot1">SLOT 1 - <span class="slot-info">VAZIO</span></button>
+                    <div id="del1" class="delete-btn" style="display:none;">🗑️</div>
+                </div>
+                <div class="slot-row">
+                    <button class="slot-btn" id="slot2">SLOT 2 - <span class="slot-info">VAZIO</span></button>
+                    <div id="del2" class="delete-btn" style="display:none;">🗑️</div>
+                </div>
+                <div class="slot-row">
+                    <button class="slot-btn" id="slot3">SLOT 3 - <span class="slot-info">VAZIO</span></button>
+                    <div id="del3" class="delete-btn" style="display:none;">🗑️</div>
+                </div>
+            </div>
+            <button id="btnBackSlot" style="margin-top: 16px; background: #95a5a6; color: white;">VOLTAR</button>
+        </div>
+    </div>
+
+    <!-- IN-GAME MENU -->
+    <div class="screen" id="ingameMenu">
+        <div class="paper" style="text-align: center; max-width: 300px;">
+            <h2 style="margin: 0 0 20px; border-bottom: 3px solid #333; padding-bottom: 10px; font-family:'VT323',monospace;">PAUSA</h2>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <button id="btnSave" style="background: #2ecc71; color: white;">SALVAR PROGRESSO</button>
+                <button id="btnSettingsIngame" style="background: #95a5a6; color: white;">OPÇÕES</button>
+                <button id="btnMainMenu" style="background: #e74c3c; color: white;">MENU PRINCIPAL</button>
+                <button id="btnResume" style="margin-top: 10px;">VOLTAR AO JOGO</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="screen" id="settings">
+        <div class="paper" style="max-width: 300px;">
+            <h2 style="margin: 0 0 20px; border-bottom: 3px solid #333; padding-bottom: 10px; text-align: center; font-family:'VT323',monospace;">OPÇÕES</h2>
+            <div style="font-family:'VT323',monospace; font-size: 18px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <span>Joystick</span>
+                    <input type="checkbox" id="settingJoystick" checked style="width: 20px; height: 20px;">
+                </div>
+            </div>
+            <button id="btnCloseSettings">FECHAR</button>
+        </div>
+    </div>
+
+    <!-- BACKPACK SCREEN -->
+    <div class="screen" id="backpack">
+        <div class="paper">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #333; padding-bottom: 8px;">
+                <h2 style="margin:0; font-size: 22px; font-family:'VT323',monospace;">ALQUIMIA</h2>
+                <div id="closeBackpack" style="cursor:pointer; font-weight:bold; font-size: 28px; padding: 0 8px;">×</div>
+            </div>
+            <div class="item-grid" id="backpackGrid"></div>
+            <div style="margin-top: 12px; font-size: 16px; text-align: center; color: #5d4037; font-weight: bold; font-family:'VT323',monospace;">
+                PROGRESSO: <span id="collectCount2">0</span> / 118
+            </div>
+        </div>
+    </div>
+
+    <!-- MAP SCREEN -->
+    <div class="screen" id="map">
+        <div class="paper" style="text-align: center;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #333; padding-bottom: 8px; margin-bottom: 12px;">
+                <h2 style="margin:0; font-size: 22px; font-family:'VT323',monospace;">CARTOGRAFIA</h2>
+                <div id="closeMap" style="cursor:pointer; font-weight:bold; font-size: 28px; padding: 0 8px;">×</div>
+            </div>
+            <div id="mapContainer"><canvas id="mapCanvas"></canvas></div>
+            <div style="margin-top: 12px; font-size: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; text-align: left; font-family:'VT323',monospace;">
+                <div><span style="color:#f1c40f;">□</span> Ilha Atual</div>
+                <div><span style="color:#fff;">●</span> Você</div>
+                <div><span style="color:#f39c12;">●</span> Barco</div>
+                <div><span style="color:#555;">■</span> Névoa</div>
+            </div>
+            <button id="closeMapBtn" style="margin-top: 12px; background: #95a5a6; color: white;">FECHAR</button>
+        </div>
+    </div>
+
+    <!-- QUIZ SCREEN -->
+    <div class="screen" id="quiz">
+        <div class="paper" id="quizPaper">
+            <div id="quizIntroSection">
+                <h2 id="introTitle" style="margin: 0 0 15px; font-size: 22px; border-bottom: 3px solid #333; padding-bottom: 5px; font-family:'VT323',monospace;">ANÁLISE</h2>
+                <p id="introText" style="font-size: 16px; line-height: 1.5; margin-bottom: 20px; text-align: justify; font-family:'VT323',monospace;"></p>
+                <button id="btnStartQuestion">TESTAR ESTABILIDADE</button>
+            </div>
+            <div id="quizQuestionSection" style="display: none;">
+                <p id="quizQuest" style="font-size: 18px; margin-bottom: 20px; font-weight: bold; line-height: 1.4; font-family:'VT323',monospace;"></p>
+                <div id="quizOptions" style="display: flex; flex-direction: column; gap: 10px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VICTORY SCREEN -->
+    <div class="screen" id="victory">
+        <div class="paper" style="text-align: center; background: linear-gradient(135deg, #f1c40f, #f39c12); color: #fff; border: 5px solid #fff; box-shadow: 0 0 50px #f1c40f;">
+            <h1 style="font-size: 40px; margin: 0; font-family:'VT323',monospace;">VITÓRIA!</h1>
+            <p style="font-size: 18px; font-family:'VT323',monospace;">Você se tornou o Mestre Alquimista Supremo!</p>
+            <div id="victoryStats" style="margin: 20px 0; font-size: 16px; font-family:'VT323',monospace;"></div>
+            <button id="btnRestart" style="background: #fff; color: #f39c12; border: none;">REINICIAR JORNADA</button>
+        </div>
+    </div>
+
+    <!-- NPC Dialog -->
+    <div class="ui-box dialog-box" id="npcDialog">
+        <div style="color: #d35400; font-size: 14px; font-weight: bold; margin-bottom: 8px; text-transform: uppercase; font-family:'VT323',monospace;" id="npcName">NOME</div>
+        <div id="npcText" style="font-size: 17px; line-height: 1.4; color: #2c3e50; font-family:'VT323',monospace;">...</div>
+        <div style="position: absolute; bottom: 8px; right: 12px; font-size: 12px; color: #95a5a6; font-family:'VT323',monospace;">[ TOQUE PARA FECHAR ]</div>
+    </div>
+
+    <!-- Joystick -->
+    <div class="joystick-base" id="joyBase">
+        <div class="joystick-knob" id="joyKnob"></div>
+    </div>
+
+    <!-- ALCHEMY LAB SCREEN -->
+    <div class="screen" id="alchemy">
+        <div class="lab-paper">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <div class="lab-title">⚗️ LABORATÓRIO</div>
+                <div id="closeAlchemy" style="cursor:pointer; font-size:28px; color:#c39bd3; padding:0 4px; -webkit-tap-highlight-color:transparent;">×</div>
+            </div>
+            <div class="lab-subtitle">Combine elementos para sintetizar compostos!</div>
+
+            <!-- Combination Slots -->
+            <div class="combine-row" id="combineRow">
+                <div class="combine-slot" id="cs0"><div class="slot-sym" id="cs0sym">?</div><div class="slot-name" id="cs0name">vazio</div><div class="slot-clear" id="cs0clr">×</div></div>
+                <div class="plus-sign">+</div>
+                <div class="combine-slot" id="cs1"><div class="slot-sym" id="cs1sym">?</div><div class="slot-name" id="cs1name">vazio</div><div class="slot-clear" id="cs1clr">×</div></div>
+                <div class="plus-sign">+</div>
+                <div class="combine-slot" id="cs2"><div class="slot-sym" id="cs2sym">?</div><div class="slot-name" id="cs2name">vazio</div><div class="slot-clear" id="cs2clr">×</div></div>
+            </div>
+
+            <button id="btnSynth">⚡ SINTETIZAR ⚡</button>
+
+            <!-- Result display -->
+            <div id="reactionResult">
+                <span class="result-emoji" id="resEmoji">🔬</span>
+                <div class="result-name" id="resName">–</div>
+                <div class="result-formula" id="resFormula">–</div>
+                <div class="result-desc" id="resDesc">–</div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="lab-tabs">
+                <div class="lab-tab active" id="tabElements" data-tab="elements">ELEMENTOS</div>
+                <div class="lab-tab" id="tabRecipes" data-tab="recipes">RECEITAS <span id="recipeCount" style="color:#f1c40f;"></span></div>
+            </div>
+
+            <!-- Elements tab -->
+            <div id="tabElementsPanel">
+                <div style="font-family:'VT323',monospace; font-size:13px; color:#7f8c8d; margin-bottom:6px; text-align:center;">Toque em um elemento para adicioná-lo ao slot</div>
+                <div class="lab-element-grid" id="labElGrid"></div>
+            </div>
+
+            <!-- Recipes tab -->
+            <div id="tabRecipesPanel" style="display:none;">
+                <div class="recipe-discovered" id="recipeDiscovered">0 / 0 descobertas</div>
+                <div class="recipe-list" id="recipeList"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="reactionFlash"></div>
+    <div id="fadeOverlay"></div>
+</div>
+
+<script>
+// ===================== UTILS =====================
+function addBtn(id, fn) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('pointerdown', function(e) {
+        e.preventDefault();
+        fn();
+    });
+}
+function addClickable(el, fn) {
+    el.addEventListener('pointerdown', function(e) {
+        e.preventDefault();
+        fn();
+    });
+}
+
+// ===================== SCREENS =====================
+function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => {
+        s.classList.remove('active');
+        s.style.display = 'none';
+    });
+    const s = document.getElementById(id);
+    if (s) {
+        s.style.display = 'flex';
+        requestAnimationFrame(() => s.classList.add('active'));
+    }
+}
+function hideScreen(id) {
+    const s = document.getElementById(id);
+    if (s) { s.classList.remove('active'); s.style.display = 'none'; }
+}
+function hideAllScreens() {
+    document.querySelectorAll('.screen').forEach(s => {
+        s.classList.remove('active');
+        s.style.display = 'none';
+    });
+}
+
+// ===================== GAME STATE =====================
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+const TILE_SIZE = 48;
+const WORLD_SIZE = 300;
+
+let xp = 0, unlocked = 1, playerName = "ALQUIMISTA", currentLevel = 1, bossIdx = -1, defeatedBosses = [];
+let currentElementQuestProgress = 0;
+const QUESTIONS_PER_ELEMENT = 3;
+let keys = {};
+let player = { x: 35 * TILE_SIZE, y: 35 * TILE_SIZE, speed: 6, dir: 'down', moving: false, vx: 0, vy: 0, frame: 0, wait: false, scaleX: 1, scaleY: 1 };
+let camera = { x: 0, y: 0 };
+let currentIslandName = "Metais";
+let lastTime = 0;
+let interactTarget = null;
+let shake = 0;
+let dialogOpen = false;
+let currentSaveSlot = 1;
+let slotMode = 'new';
+let gameStarted = false;
+let gameLoopRunning = false;
+
+const clouds = [];
+for(let i=0; i<12; i++) clouds.push({ x: Math.random()*WORLD_SIZE*TILE_SIZE, y: Math.random()*WORLD_SIZE*TILE_SIZE, s: 0.1+Math.random()*0.4, w: 120+Math.random()*150 });
+const motes = [];
+for(let i=0; i<40; i++) motes.push({ x: Math.random()*WORLD_SIZE*TILE_SIZE, y: Math.random()*WORLD_SIZE*TILE_SIZE, phase: Math.random()*Math.PI*2, speed: 0.2+Math.random()*0.5 });
+const particles = [];
+function createParticle(x, y, color, count=5, speed=2) {
+    for(let i=0; i<count; i++) particles.push({ x, y, vx:(Math.random()-0.5)*speed, vy:(Math.random()-0.5)*speed, life:1.0, color:color||"#fff", size:2+Math.random()*4 });
+}
+const visitedChunks = new Set();
+const CHUNK_SIZE = 5;
+
+const islands = [
+    { name:"Metais", x:15, y:15, w:50, h:50, color:"#7f8c8d", ground:"#95a5a6", theme:'metal' },
+    { name:"Ametais", x:75, y:75, w:50, h:50, color:"#27ae60", ground:"#2ecc71", theme:'nature' },
+    { name:"Transição", x:150, y:15, w:60, h:60, color:"#e67e22", ground:"#f39c12", theme:'fire' },
+    { name:"Gases Nobres", x:15, y:95, w:40, h:40, color:"#4b0082", ground:"#8e44ad", theme:'gas' },
+    { name:"Lantanídeos", x:150, y:95, w:60, h:40, color:"#f1c40f", ground:"#f39c12", theme:'crystal' },
+    { name:"Actinídeos", x:230, y:15, w:60, h:60, color:"#c0392b", ground:"#e74c3c", theme:'radioactive' }
+];
+
+const bosses = [
+    { name:"O Guardião de Bronze", island:"Metais", req:7, x:40, y:60,
+      intro:"Para cruzar o mar, você deve provar que conhece a liga fundamental!",
+      questions:[
+        { q:"Quais elementos compõem o Bronze?", a:["Cobre e Estanho","Cobre e Zinco","Ferro e Carbono","Ouro e Prata"], c:"Cobre e Estanho" },
+        { q:"O Bronze é considerado uma...", a:["Substância Pura","Mistura Homogênea (Liga)","Mistura Heterogênea","Elemento"], c:"Mistura Homogênea (Liga)" }
+      ]},
+    { name:"O Espírito da Selva", island:"Ametais", req:16, x:100, y:120,
+      intro:"O ciclo da vida depende da síntese orgânica. Prove seu conhecimento!",
+      questions:[
+        { q:"Qual o principal elemento das moléculas orgânicas?", a:["Carbono","Ferro","Cálcio","Sódio"], c:"Carbono" },
+        { q:"A fotossíntese converte CO2 e água em...", a:["Glicose e Oxigênio","Sal e Cloro","Ouro e Prata","Ácido"], c:"Glicose e Oxigênio" }
+      ]},
+    { name:"O Mestre da Forja", island:"Transição", req:21, x:180, y:65,
+      intro:"Metais pesados exigem mãos fortes e mente afiada!",
+      questions:[
+        { q:"Qual metal é líquido em temperatura ambiente?", a:["Prata","Mercúrio","Chumbo","Zinco"], c:"Mercúrio" },
+        { q:"Qual o elemento de transição mais usado na indústria?", a:["Ouro","Ferro","Cobre","Níquel"], c:"Ferro" }
+      ]},
+    { name:"O Soberano do Vácuo", island:"Gases Nobres", req:25, x:35, y:115,
+      intro:"O silêncio do vácuo é absoluto. Mostre sua estabilidade!",
+      questions:[
+        { q:"Qual a principal característica dos Gases Nobres?", a:["Alta Reatividade","Estabilidade (Inertes)","São Metais","São Líquidos"], c:"Estabilidade (Inertes)" },
+        { q:"Qual destes é um Gás Nobre?", a:["Nitrogênio","Hélio","Oxigênio","Cloro"], c:"Hélio" }
+      ]},
+    { name:"A Rainha dos Cristais", island:"Lantanídeos", req:30, x:180, y:110,
+      intro:"A pureza dos cristais é inalcançável para os impuros!",
+      questions:[
+        { q:"Lantanídeos são conhecidos como terras...", a:["Raras","Preciosas","Puras","Sólidas"], c:"Raras" },
+        { q:"Onde os lantanídeos são muito usados?", a:["Tecnologia/Lasers","Construção civil","Alimentos","Roupas"], c:"Tecnologia/Lasers" }
+      ]},
+    { name:"O Senhor do Núcleo", island:"Actinídeos", req:118, x:260, y:40,
+      intro:"O poder do átomo está em minhas mãos. Você ousa desafiar a fissão?",
+      questions:[
+        { q:"Qual processo libera energia no Urânio?", a:["Combustão","Fissão Nuclear","Evaporação","Oxidação"], c:"Fissão Nuclear" },
+        { q:"Muitos actinídeos são elementos...", a:["Naturais","Sintéticos e Radioativos","Gases","Líquidos"], c:"Sintéticos e Radioativos" }
+      ]}
+];
+
+const npcsData = [
+    { x:38, y:38, name:"Alquimista Mentor", island:"Metais", text:"Bem-vindo! Colete os 6 elementos desta ilha para provar seu valor e viajar para a Ilha de Ametais." },
+    { x:82, y:82, name:"Guardião da Natureza", island:"Ametais", text:"Os Ametais são diversos. Colete todos os 9 para acessar o santuário dos Gases Nobres." },
+    { x:30, y:115, name:"Eremita do Éter", island:"Gases Nobres", text:"Você chegou longe. Os Gases Nobres são estáveis e raros. Colete-os para completar sua jornada!" },
+    { x:160, y:110, name:"Sábio das Terras Raras", island:"Lantanídeos", text:"Você descobriu os Lantanídeos! Eles brilham com propriedades únicas para nossa tecnologia." }
+];
+
+const elements = [
+    { id:1, name:"Hidrogênio", symbol:"H", island:"Metais", x:38, y:35, color:"#e3f2fd", info:"O mais simples e abundante elemento do universo!", questions:[
+        { q:"Qual o elemento mais abundante do universo?", a:["Hélio","Oxigênio","Hidrogênio","Carbono"], c:"Hidrogênio" },
+        { q:"Quantos prótons tem um átomo de Hidrogênio?", a:["0","1","2","8"], c:"1" },
+        { q:"Em condições normais, o Hidrogênio é um...", a:["Gás","Líquido","Sólido","Metal"], c:"Gás" }]},
+    { id:3, name:"Lítio", symbol:"Li", island:"Metais", x:40, y:30, color:"#cfd8dc", info:"Metal macio usado em baterias de celulares.", questions:[
+        { q:"Onde o Lítio é muito utilizado hoje em dia?", a:["Pneus","Baterias","Roupas","Papel"], c:"Baterias" },
+        { q:"Qual o símbolo químico do Lítio?", a:["L","Li","Lt","Lo"], c:"Li" },
+        { q:"O Lítio é o metal mais ______ que existe.", a:["Pesado","Leve","Escuro","Quente"], c:"Leve" }]},
+    { id:4, name:"Berílio", symbol:"Be", island:"Metais", x:50, y:25, color:"#dcedc8", info:"Metal duro e leve, usado em naves espaciais.", questions:[
+        { q:"Berílio é valorizado por ser...", a:["Frágil","Leve e duro","Líquido","Preto"], c:"Leve e duro" },
+        { q:"Qual o símbolo do Berílio?", a:["B","Be","Br","Bi"], c:"Be" },
+        { q:"O Berílio é usado na construção de...", a:["Naves espaciais","Pneus","Livros","Tapetes"], c:"Naves espaciais" }]},
+    { id:11, name:"Sódio", symbol:"Na", island:"Metais", x:20, y:40, color:"#d7ccc8", info:"Reage violentamente com a água.", questions:[
+        { q:"Sódio reage de forma explosiva com...", a:["Ar","Ouro","Água","Areia"], c:"Água" },
+        { q:"Qual o símbolo do Sódio?", a:["S","So","Na","Sd"], c:"Na" },
+        { q:"O Sódio é um componente essencial do...", a:["Açúcar","Sal de cozinha","Plástico","Vidro"], c:"Sal de cozinha" }]},
+    { id:12, name:"Magnésio", symbol:"Mg", island:"Metais", x:30, y:50, color:"#ffcdd2", info:"Metal leve usado em peças de carros e flashes.", questions:[
+        { q:"O Magnésio é um metal...", a:["Muito pesado","Líquido","Leve","Invisível"], c:"Leve" },
+        { q:"O Magnésio é fundamental para qual processo vegetal?", a:["Respiração","Fotossíntese","Transpiração","Crescimento"], c:"Fotossíntese" },
+        { q:"Qual o símbolo do Magnésio?", a:["M","Ma","Mg","Mn"], c:"Mg" }]},
+    { id:13, name:"Alumínio", symbol:"Al", island:"Metais", x:55, y:45, color:"#f5f5f5", info:"O metal mais abundante na crosta terrestre.", questions:[
+        { q:"Metal mais comum na crosta da Terra?", a:["Ferro","Ouro","Alumínio","Cobre"], c:"Alumínio" },
+        { q:"O Alumínio é muito usado em...", a:["Latas","Lápis","Pneus","Roupas"], c:"Latas" },
+        { q:"Qual o símbolo do Alumínio?", a:["A","Al","Am","Au"], c:"Al" }]},
+    { id:19, name:"Potássio", symbol:"K", island:"Metais", x:25, y:25, color:"#e1bee7", info:"Mineral essencial encontrado em abundância nas bananas.", questions:[
+        { q:"Qual fruta é famosa por ter muito Potássio?", a:["Maçã","Banana","Uva","Melancia"], c:"Banana" },
+        { q:"Qual o símbolo do Potássio?", a:["P","Po","K","Pt"], c:"K" },
+        { q:"O Potássio é um metal...", a:["Alcalino","Nobre","Líquido","Preto"], c:"Alcalino" }]},
+    { id:20, name:"Cálcio", symbol:"Ca", island:"Metais", x:45, y:55, color:"#fff9c4", info:"Fundamental para a formação de ossos e dentes.", questions:[
+        { q:"Onde o Cálcio é mais importante no corpo?", a:["Cabelo","Ossos e Dentes","Pele","Olhos"], c:"Ossos e Dentes" },
+        { q:"Qual alimento é rico em Cálcio?", a:["Carne","Leite","Arroz","Pão"], c:"Leite" },
+        { q:"Qual o símbolo do Cálcio?", a:["C","Ca","Cl","Cs"], c:"Ca" }]},
+    { id:5, name:"Boro", symbol:"B", island:"Ametais", x:90, y:85, color:"#f8bbd0", info:"Usado em fogos de artifício verdes.", questions:[
+        { q:"Qual cor o Boro produz em fogos de artifício?", a:["Vermelho","Azul","Verde","Amarelo"], c:"Verde" },
+        { q:"Qual o símbolo do Boro?", a:["B","Bo","Br","Be"], c:"B" },
+        { q:"O Boro é classificado como...", a:["Metal","Ametal/Semimetal","Gás Nobre","Líquido"], c:"Ametal/Semimetal" }]},
+    { id:6, name:"Carbono", symbol:"C", island:"Ametais", x:100, y:95, color:"#455a64", info:"Presente no grafite do lápis e no diamante.", questions:[
+        { q:"Qual destes é feito de Carbono puro?", a:["Ouro","Diamante","Prata","Cobre"], c:"Diamante" },
+        { q:"O Carbono é a base de qual química?", a:["Inorgânica","Orgânica","Nuclear","Analítica"], c:"Orgânica" },
+        { q:"Qual o símbolo do Carbono?", a:["Ca","Co","C","Cb"], c:"C" }]},
+    { id:7, name:"Nitrogênio", symbol:"N", island:"Ametais", x:110, y:110, color:"#bbdefb", info:"Compõe 78% da atmosfera terrestre.", questions:[
+        { q:"% de Nitrogênio no ar?", a:["21%","78%","10%","50%"], c:"78%" },
+        { q:"Nitrogênio líquido é usado para...", a:["Esquentar","Congelar","Lavar","Pintar"], c:"Congelar" },
+        { q:"Qual o símbolo do Nitrogênio?", a:["Ni","Nt","N","Ng"], c:"N" }]},
+    { id:8, name:"Oxigênio", symbol:"O", island:"Ametais", x:85, y:115, color:"#b3e5fc", info:"Essencial para a respiração dos seres vivos.", questions:[
+        { q:"Qual gás é vital para nossa respiração?", a:["Cloro","Oxigênio","Argônio","Neônio"], c:"Oxigênio" },
+        { q:"O que é O3?", a:["Água","Ozônio","Gelo Seco","Ar"], c:"Ozônio" },
+        { q:"Qual o símbolo do Oxigênio?", a:["Ox","O","Oz","On"], c:"O" }]},
+    { id:9, name:"Flúor", symbol:"F", island:"Ametais", x:78, y:100, color:"#fff9c4", info:"Usado em pastas de dente para prevenir cáries.", questions:[
+        { q:"Função do Flúor na pasta de dente?", a:["Dar sabor","Limpar manchas","Prevenir cáries","Fazer espuma"], c:"Prevenir cáries" },
+        { q:"O Flúor é o elemento mais ______ que existe.", a:["Pesado","Eletronegativo","Estável","Abundante"], c:"Eletronegativo" },
+        { q:"Qual o símbolo do Flúor?", a:["Fl","F","Fr","Fu"], c:"F" }]},
+    { id:14, name:"Silício", symbol:"Si", island:"Ametais", x:115, y:80, color:"#cfd8dc", info:"Base de todos os chips de computador.", questions:[
+        { q:"O Silício é essencial para a indústria de...", a:["Móveis","Eletrônicos","Roupas","Alimentos"], c:"Eletrônicos" },
+        { q:"Onde o Silício é encontrado em abundância?", a:["Areia","Nuvens","Petróleo","Ouro"], c:"Areia" },
+        { q:"Qual o símbolo do Silício?", a:["S","Sl","Si","Sc"], c:"Si" }]},
+    { id:15, name:"Fósforo", symbol:"P", island:"Ametais", x:105, y:115, color:"#ffccbc", info:"Vital para o DNA e transferência de energia.", questions:[
+        { q:"O Fósforo é um componente vital do...", a:["Cabelo","Suor","DNA","Ar"], c:"DNA" },
+        { q:"Qual o símbolo do Fósforo?", a:["F","Fo","Ph","P"], c:"P" },
+        { q:"Onde o Fósforo é comumente usado em casa?", a:["Sabão","Palitos de fósforo","Sal","Açúcar"], c:"Palitos de fósforo" }]},
+    { id:16, name:"Enxofre", symbol:"S", island:"Ametais", x:95, y:105, color:"#fff59d", info:"Conhecido por seu cheiro de ovo podre.", questions:[
+        { q:"O Enxofre é conhecido pelo cheiro de...", a:["Flores","Ovo podre","Perfume","Mar"], c:"Ovo podre" },
+        { q:"Qual o símbolo do Enxofre?", a:["E","Sn","S","En"], c:"S" },
+        { q:"O Enxofre é essencial para produção de...", a:["Ácido Sulfúrico","Água","Sal","Açúcar"], c:"Ácido Sulfúrico" }]},
+    { id:17, name:"Cloro", symbol:"Cl", island:"Ametais", x:120, y:90, color:"#c8e6c9", info:"Usado para desinfetar água de piscinas.", questions:[
+        { q:"O Cloro é usado para desinfectar...", a:["Roupas","Metais","Piscinas","Solo"], c:"Piscinas" },
+        { q:"Qual o símbolo do Cloro?", a:["C","Ch","Cl","Cr"], c:"Cl" },
+        { q:"O Cloro pertence ao grupo dos...", a:["Metais","Gases Nobres","Halogênios","Alcalinos"], c:"Halogênios" }]},
+    // Transition metals
+    { id:22, name:"Titânio", symbol:"Ti", island:"Transição", x:165, y:45, color:"#b0bec5", info:"Metal leve e super resistente usado em aviões.", questions:[
+        { q:"O Titânio é famoso por ser leve e...", a:["Frágil","Resistente","Mole","Radioativo"], c:"Resistente" },
+        { q:"Qual o símbolo do Titânio?", a:["T","Tt","Ti","Tn"], c:"Ti" },
+        { q:"O Titânio é amplamente usado em...", a:["Roupas","Aviões","Papel","Alimentos"], c:"Aviões" }]},
+    { id:24, name:"Cromo", symbol:"Cr", island:"Transição", x:175, y:55, color:"#cfd8dc", info:"Dá o brilho ao aço inoxidável.", questions:[
+        { q:"O Cromo é famoso pelo seu...", a:["Cheiro","Brilho","Peso","Calor"], c:"Brilho" },
+        { q:"Qual o símbolo do Cromo?", a:["C","Cr","Ch","Co"], c:"Cr" },
+        { q:"O Cromo é essencial para o...", a:["Aço inoxidável","Plástico","Borracha","Vidro"], c:"Aço inoxidável" }]},
+    { id:25, name:"Manganês", symbol:"Mn", island:"Transição", x:185, y:35, color:"#b39ddb", info:"Essencial na produção do aço.", questions:[
+        { q:"O Manganês é essencial na produção do...", a:["Plástico","Aço","Papel","Vidro"], c:"Aço" },
+        { q:"Qual o símbolo do Manganês?", a:["M","Ma","Mn","Me"], c:"Mn" },
+        { q:"O Manganês é encontrado em...", a:["Baterias","Roupas","Frutas","Areia"], c:"Baterias" }]},
+    { id:26, name:"Ferro", symbol:"Fe", island:"Transição", x:195, y:50, color:"#90a4ae", info:"O metal mais usado pela humanidade.", questions:[
+        { q:"Qual o metal mais usado pela humanidade?", a:["Ouro","Prata","Ferro","Cobre"], c:"Ferro" },
+        { q:"Qual o símbolo do Ferro?", a:["F","Fe","Fr","Fi"], c:"Fe" },
+        { q:"O Ferro é o principal componente do...", a:["Vidro","Aço","Plástico","Borracha"], c:"Aço" }]},
+    { id:27, name:"Cobalto", symbol:"Co", island:"Transição", x:200, y:30, color:"#1565c0", info:"Pigmento azul historicamente valioso.", questions:[
+        { q:"O Cobalto é famoso por sua cor...", a:["Vermelha","Verde","Azul","Amarela"], c:"Azul" },
+        { q:"Qual o símbolo do Cobalto?", a:["C","Co","Cb","Cl"], c:"Co" },
+        { q:"O Cobalto é usado em...", a:["Baterias de íon-lítio","Pneus","Papel","Roupas"], c:"Baterias de íon-lítio" }]},
+    { id:28, name:"Níquel", symbol:"Ni", island:"Transição", x:170, y:70, color:"#b0bec5", info:"Usado em moedas e baterias recarregáveis.", questions:[
+        { q:"O Níquel é amplamente usado em...", a:["Moedas","Roupas","Papel","Alimentos"], c:"Moedas" },
+        { q:"Qual o símbolo do Níquel?", a:["N","Ni","Nk","Ne"], c:"Ni" },
+        { q:"O Níquel é encontrado no...", a:["Núcleo da Terra","Mar","Ar","Sol"], c:"Núcleo da Terra" }]},
+    { id:29, name:"Cobre", symbol:"Cu", island:"Transição", x:180, y:60, color:"#ef9a9a", info:"Excelente condutor de eletricidade.", questions:[
+        { q:"O Cobre é famoso por conduzir...", a:["Calor","Eletricidade","Som","Luz"], c:"Eletricidade" },
+        { q:"Qual o símbolo do Cobre?", a:["C","Co","Cu","Cp"], c:"Cu" },
+        { q:"O Cobre é usado em...", a:["Fios elétricos","Pneus","Papel","Tecidos"], c:"Fios elétricos" }]},
+    { id:30, name:"Zinco", symbol:"Zn", island:"Transição", x:190, y:70, color:"#e0e0e0", info:"Protege o aço da corrosão.", questions:[
+        { q:"O Zinco é usado para proteger o aço da...", a:["Luz","Calor","Corrosão","Frio"], c:"Corrosão" },
+        { q:"Qual o símbolo do Zinco?", a:["Z","Zi","Zn","Ze"], c:"Zn" },
+        { q:"O Zinco é essencial para...", a:["Sistema imunológico","Digestão","Visão","Audição"], c:"Sistema imunológico" }]},
+    { id:47, name:"Prata", symbol:"Ag", island:"Transição", x:195, y:25, color:"#e0e0e0", info:"Metal nobre com grande condutividade elétrica.", questions:[
+        { q:"Qual o símbolo da Prata?", a:["P","Pr","Ag","Si"], c:"Ag" },
+        { q:"A Prata é famosa por ser...", a:["Pesada","Condutora","Magnética","Radioativa"], c:"Condutora" },
+        { q:"A Prata é usada em...", a:["Joias e eletrônicos","Pneus","Plásticos","Papel"], c:"Joias e eletrônicos" }]},
+    { id:79, name:"Ouro", symbol:"Au", island:"Transição", x:205, y:65, color:"#ffd54f", info:"Metal precioso símbolo de riqueza.", questions:[
+        { q:"Qual o símbolo do Ouro?", a:["O","Or","Go","Au"], c:"Au" },
+        { q:"O Ouro é famoso por não...", a:["Brilhar","Enferrujar","Conduzir","Fundir"], c:"Enferrujar" },
+        { q:"O Ouro é amplamente usado em...", a:["Joias e eletrônica","Pneus","Papel","Alimentos"], c:"Joias e eletrônica" }]},
+    // Noble gases
+    { id:2, name:"Hélio", symbol:"He", island:"Gases Nobres", x:25, y:105, color:"#fff9c4", info:"Segundo elemento mais leve, usado em balões.", questions:[
+        { q:"O Hélio é mais leve que o...", a:["Nitrogênio","Oxigênio","Argônio","Carbono"], c:"Nitrogênio" },
+        { q:"O Hélio é usado em...", a:["Balões","Automóveis","Roupas","Alimentos"], c:"Balões" },
+        { q:"Qual o símbolo do Hélio?", a:["H","He","Hi","Ho"], c:"He" }]},
+    { id:10, name:"Neônio", symbol:"Ne", island:"Gases Nobres", x:35, y:100, color:"#ff5252", info:"Usado em letreiros luminosos.", questions:[
+        { q:"O Neônio é famoso por seu uso em...", a:["Balões","Letreiros luminosos","Baterias","Computadores"], c:"Letreiros luminosos" },
+        { q:"Qual o símbolo do Neônio?", a:["N","Ni","Ne","No"], c:"Ne" },
+        { q:"O Neônio é um...", a:["Metal","Gás Nobre","Ametal","Radioativo"], c:"Gás Nobre" }]},
+    { id:18, name:"Argônio", symbol:"Ar", island:"Gases Nobres", x:45, y:110, color:"#e1bee7", info:"Gás nobre mais comum na atmosfera.", questions:[
+        { q:"O Argônio é o gás nobre mais...", a:["Raro","Pesado","Abundante","Leve"], c:"Abundante" },
+        { q:"Qual o símbolo do Argônio?", a:["A","Ag","Ar","Al"], c:"Ar" },
+        { q:"O Argônio é usado em...", a:["Soldagem","Alimentos","Roupas","Combustível"], c:"Soldagem" }]},
+    { id:36, name:"Criptônio", symbol:"Kr", island:"Gases Nobres", x:20, y:120, color:"#b3e5fc", info:"Gás nobre usado em lâmpadas especiais.", questions:[
+        { q:"Qual o símbolo do Criptônio?", a:["K","Kr","Kn","Cp"], c:"Kr" },
+        { q:"O Criptônio é usado em...", a:["Lâmpadas","Comida","Roupas","Papel"], c:"Lâmpadas" },
+        { q:"O Criptônio é...", a:["Metal","Radioativo","Inerte","Líquido"], c:"Inerte" }]},
+    { id:54, name:"Xenônio", symbol:"Xe", island:"Gases Nobres", x:40, y:125, color:"#e8eaf6", info:"Usado em motores iônicos de naves espaciais.", questions:[
+        { q:"O Xenônio é usado em...", a:["Motores iônicos","Pneus","Papel","Tintas"], c:"Motores iônicos" },
+        { q:"Qual o símbolo do Xenônio?", a:["X","Xe","Xn","Ze"], c:"Xe" },
+        { q:"O Xenônio é um...", a:["Metal","Gás Nobre","Semimetal","Radioativo"], c:"Gás Nobre" }]},
+    // Lanthanides
+    { id:57, name:"Lantânio", symbol:"La", island:"Lantanídeos", x:160, y:100, color:"#fff8e1", info:"Dá nome à família dos Lantanídeos.", questions:[
+        { q:"Qual o símbolo do Lantânio?", a:["L","Ln","La","Lt"], c:"La" },
+        { q:"O Lantânio é encontrado em...", a:["Baterias de híbridos","Roupas","Papel","Pneus"], c:"Baterias de híbridos" },
+        { q:"Lantânio dá nome a qual família?", a:["Metais","Lantanídeos","Actinídeos","Gases"], c:"Lantanídeos" }]},
+    { id:58, name:"Cério", symbol:"Ce", island:"Lantanídeos", x:170, y:105, color:"#fffde7", info:"Lantanídeo mais abundante na crosta terrestre.", questions:[
+        { q:"Qual o símbolo do Cério?", a:["C","Ce","Cr","Ci"], c:"Ce" },
+        { q:"O Cério é o lantanídeo mais...", a:["Raro","Pesado","Abundante","Leve"], c:"Abundante" },
+        { q:"O Cério é usado em...", a:["Catalisadores","Roupas","Pneus","Alimentos"], c:"Catalisadores" }]},
+    { id:60, name:"Neodímio", symbol:"Nd", island:"Lantanídeos", x:175, y:98, color:"#e8f5e9", info:"Usado nos ímãs mais poderosos do mundo.", questions:[
+        { q:"O Neodímio é famoso por criar...", a:["Luz","Ímãs potentes","Calor","Radioatividade"], c:"Ímãs potentes" },
+        { q:"Qual o símbolo do Neodímio?", a:["N","Nd","Nm","No"], c:"Nd" },
+        { q:"Os ímãs de Neodímio são usados em...", a:["Motores elétricos","Alimentos","Roupas","Pneus"], c:"Motores elétricos" }]},
+    { id:63, name:"Európio", symbol:"Eu", island:"Lantanídeos", x:185, y:115, color:"#fce4ec", info:"Produz as cores vermelha e azul em telas.", questions:[
+        { q:"Qual o símbolo do Európio?", a:["E","Eu","Er","Em"], c:"Eu" },
+        { q:"O Európio produz cores em...", a:["Telas de TV","Pneus","Roupas","Alimentos"], c:"Telas de TV" },
+        { q:"O Európio é um...", a:["Metal","Gás","Lantanídeo","Actinídeo"], c:"Lantanídeo" }]},
+    { id:64, name:"Gadolínio", symbol:"Gd", island:"Lantanídeos", x:195, y:100, color:"#e8eaf6", info:"Usado em ressonância magnética médica.", questions:[
+        { q:"Qual o símbolo do Gadolínio?", a:["G","Ga","Gd","Gn"], c:"Gd" },
+        { q:"O Gadolínio é usado em...", a:["Ressonância magnética","Roupas","Pneus","Alimentos"], c:"Ressonância magnética" },
+        { q:"O Gadolínio tem propriedades...", a:["Radioativas","Magnéticas","Explosivas","Tóxicas"], c:"Magnéticas" }]},
+    { id:65, name:"Térbio", symbol:"Tb", island:"Lantanídeos", x:165, y:120, color:"#f3e5f5", info:"Usado em dispositivos de armazenamento de dados.", questions:[
+        { q:"Qual o símbolo do Térbio?", a:["T","Te","Tb","Tr"], c:"Tb" },
+        { q:"O Térbio é usado em...", a:["Dispositivos de memória","Roupas","Pneus","Alimentos"], c:"Dispositivos de memória" },
+        { q:"O Térbio emite luz de cor...", a:["Verde","Azul","Vermelha","Amarela"], c:"Verde" }]},
+    // Actinides
+    { id:92, name:"Urânio", symbol:"U", island:"Actinídeos", x:240, y:30, color:"#dcedc8", info:"Elemento radioativo usado em reatores nucleares.", questions:[
+        { q:"O Urânio é usado em...", a:["Reatores nucleares","Roupas","Pneus","Alimentos"], c:"Reatores nucleares" },
+        { q:"Qual o símbolo do Urânio?", a:["Ur","U","Un","Ui"], c:"U" },
+        { q:"O Urânio é um elemento...", a:["Estável","Radioativo","Gasoso","Líquido"], c:"Radioativo" }]},
+    { id:94, name:"Plutônio", symbol:"Pu", island:"Actinídeos", x:250, y:40, color:"#c8e6c9", info:"Usado em armas nucleares e geradores espaciais.", questions:[
+        { q:"O Plutônio é sinteticamente produzido e é...", a:["Estável","Radioativo","Gasoso","Leve"], c:"Radioativo" },
+        { q:"Qual o símbolo do Plutônio?", a:["P","Pl","Pu","Pt"], c:"Pu" },
+        { q:"O Plutônio é usado em...", a:["Geradores de RTG","Roupas","Alimentos","Papel"], c:"Geradores de RTG" }]},
+    { id:89, name:"Actínio", symbol:"Ac", island:"Actinídeos", x:260, y:50, color:"#b3e5fc", info:"Dá nome à família dos Actinídeos.", questions:[
+        { q:"Qual cor o Actínio brilha?", a:["Verde","Azul","Vermelho","Preto"], c:"Azul" },
+        { q:"Símbolo do Actínio?", a:["A","Ac","At","Ai"], c:"Ac" },
+        { q:"Dá nome a qual série?", a:["Lantanídeos","Actinídeos","Metais","Halogênios"], c:"Actinídeos" }]},
+    { id:90, name:"Tório", symbol:"Th", island:"Actinídeos", x:245, y:20, color:"#9e9e9e", info:"Potencial combustível nuclear alternativo ao urânio.", questions:[
+        { q:"Tório pode ser usado como...", a:["Fertilizante","Combustível nuclear","Tempero","Tecido"], c:"Combustível nuclear" },
+        { q:"Símbolo do Tório?", a:["T","Th","To","Ti"], c:"Th" },
+        { q:"É mais abundante que o...", a:["Ouro","Urânio","Ferro","Sal"], c:"Urânio" }]},
+    { id:96, name:"Cúrio", symbol:"Cm", island:"Actinídeos", x:245, y:65, color:"#dcedc8", info:"Homenagem ao casal Marie e Pierre Curie.", questions:[
+        { q:"Cúrio homenageia quem?", a:["Newton","Casal Curie","Einstein","Bohr"], c:"Casal Curie" },
+        { q:"Símbolo do Cúrio?", a:["Cu","Cm","Cr","Ci"], c:"Cm" },
+        { q:"É usado em...", a:["Sondas espaciais","Pneus","Roupas","Papel"], c:"Sondas espaciais" }]},
+    { id:102, name:"Nobélio", symbol:"No", island:"Actinídeos", x:275, y:45, color:"#f8bbd0", info:"Homenagem a Alfred Nobel, criador do Prêmio Nobel.", questions:[
+        { q:"Símbolo do Nobélio?", a:["N","Ni","No","Nb"], c:"No" },
+        { q:"Nobel inventou a...", a:["Lâmpada","Dinamite","Bateria","TV"], c:"Dinamite" },
+        { q:"Nobélio é um elemento...", a:["Sintético","Natural","Gás","Líquido"], c:"Sintético" }]}
+];
+
+const deco = [], npcs = [], boats = [];
+
+function initWorld() {
+    deco.length = 0; npcs.length = 0;
+    npcsData.forEach(nd => npcs.push({ ...nd, ox: nd.x, oy: nd.y, msg: nd.text }));
+    boats.length = 0;
+
+    islands.forEach(isl => {
+        isl.lights = [];
+        for(let i=0; i<5; i++) {
+            isl.lights.push({
+                x: (isl.x + Math.random()*isl.w)*TILE_SIZE,
+                y: (isl.y + Math.random()*isl.h)*TILE_SIZE,
+                r: 100 + Math.random()*50,
+                color: isl.theme==='metal' ? "rgba(255,150,50,0.2)" : isl.theme==='nature' ? "rgba(100,255,100,0.15)" : isl.theme==='fire' ? "rgba(255,50,50,0.2)" : "rgba(200,100,255,0.2)"
+            });
+        }
+        for(let i=0; i<60; i++) {
+            let type = 'rock';
+            if(isl.theme==='nature') type = Math.random()>0.5 ? 'tree' : Math.random()>0.5 ? 'flower' : 'mushroom';
+            else if(isl.theme==='metal') type = Math.random()>0.6 ? 'ore' : Math.random()>0.5 ? 'pipe' : 'rock';
+            else if(isl.theme==='gas') type = Math.random()>0.5 ? 'crystal' : 'orb';
+            else if(isl.theme==='crystal') type = 'gem';
+            else if(isl.theme==='radioactive') type = Math.random()>0.5 ? 'barrel' : 'goo';
+            deco.push({ x:(isl.x+Math.random()*isl.w)*TILE_SIZE, y:(isl.y+Math.random()*isl.h)*TILE_SIZE, type, color:isl.theme==='gas'?(Math.random()>0.5?'#ff00ff':'#00ffff'):isl.theme==='crystal'?'#00e5ff':null });
+        }
+    });
+
+    // Boats are placed at island SHORELINES (just at or outside island bounds):
+    // Metais:      x:15-64, y:15-64   Ametais:     x:75-124, y:75-124
+    // Transição:   x:150-209, y:15-74  Gases Nobres: x:15-54, y:95-134
+    // Lantanídeos: x:150-209, y:95-134 Actinídeos:  x:230-289, y:15-74
+    boats.push({ id:1,  x:65,  y:35,  targetX:77,  targetY:78,  req:6,  bossReq:0, msg:"Colete 6 elementos e vença o Guardião de Bronze para zarpar!", activeMsg:"Barco para a ILHA DOS AMETAIS pronto! Deseja viajar?", island:"Ametais", dir:'right' });
+    boats.push({ id:2,  x:125, y:100, targetX:155, targetY:45,  req:15, bossReq:1, msg:"A Ilha de TRANSIÇÃO exige 15 elementos e a derrota do Espírito da Selva!", activeMsg:"Barco para a ILHA DE TRANSIÇÃO pronto! Vamos?", island:"Transição", dir:'right' });
+    boats.push({ id:3,  x:75,  y:75,  targetX:63,  targetY:35,  req:0,  msg:"Voltar para a Ilha dos Metais?", activeMsg:"Deseja voltar para a ILHA DOS METAIS?", island:"Metais", dir:'left' });
+    boats.push({ id:4,  x:150, y:30,  targetX:120, targetY:95,  req:0,  msg:"Voltar para a Ilha dos Ametais?", activeMsg:"Deseja voltar para a ILHA DOS AMETAIS?", island:"Ametais", dir:'left' });
+    boats.push({ id:5,  x:200, y:75,  targetX:30,  targetY:105, req:20, bossReq:2, msg:"A Ilha dos GASES NOBRES requer 20 elementos e vencer o Mestre da Forja!", activeMsg:"Zarpar para a Ilha dos Gases Nobres?", island:"Gases Nobres", dir:'down' });
+    boats.push({ id:6,  x:15,  y:115, targetX:160, targetY:115, req:24, bossReq:3, msg:"Ilha dos LANTANÍDEOS requer 24 elementos e vencer o Soberano do Vácuo!", activeMsg:"Zarpar para a Ilha dos Lantanídeos?", island:"Lantanídeos", dir:'right' });
+    boats.push({ id:7,  x:210, y:115, targetX:240, targetY:45,  req:38, bossReq:4, msg:"A Ilha dos ACTINÍDEOS exige 38 elementos e a Rainha dos Cristais vencida!", activeMsg:"Zarpar para a Ilha dos Actinídeos?", island:"Actinídeos", dir:'right' });
+    boats.push({ id:8,  x:230, y:45,  targetX:200, targetY:130, req:0,  msg:"Voltar para a Ilha dos Lantanídeos?", activeMsg:"Deseja voltar para a ILHA DOS LANTANÍDEOS?", island:"Lantanídeos", dir:'left' });
+    boats.push({ id:9,  x:30,  y:95,  targetX:200, targetY:70,  req:0,  msg:"Voltar para a Ilha de Transição?", activeMsg:"Deseja voltar para a ILHA DE TRANSIÇÃO?", island:"Transição", dir:'up' });
+    boats.push({ id:10, x:150, y:120, targetX:25,  targetY:110, req:0,  msg:"Voltar para a Ilha dos Gases Nobres?", activeMsg:"Deseja voltar para a ILHA DOS GASES NOBRES?", island:"Gases Nobres", dir:'left' });
+    boats.push({ id:11, x:195, y:75,  targetX:160, targetY:100, req:30, bossReq:2, msg:"Atalho para os LANTANÍDEOS! Requer 30 elementos e vencer o Mestre da Forja.", activeMsg:"Deseja usar o atalho para a Ilha dos Lantanídeos?", island:"Lantanídeos", dir:'down' });
+}
+
+// ===================== GAME LOOP =====================
+function resize() {
+    if (!canvas || !ctx) return;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = window.innerWidth * dpr;
+    canvas.height = window.innerHeight * dpr;
+    canvas.style.width = window.innerWidth + 'px';
+    canvas.style.height = window.innerHeight + 'px';
+    ctx.resetTransform();
+    ctx.scale(dpr, dpr);
+    ctx.imageSmoothingEnabled = false;
+    ctx.textBaseline = "middle";
+    ctx.font = "24px 'VT323', monospace";
+}
+
+function isWalkable(wx, wy) {
+    const tx = wx / TILE_SIZE, ty = wy / TILE_SIZE;
+    for(const isl of islands) {
+        if(tx >= isl.x-0.2 && tx <= isl.x+isl.w+0.2 && ty >= isl.y-0.2 && ty <= isl.y+isl.h+0.2) return true;
+    }
+    for(const b of boats) {
+        if(tx >= b.x-0.5 && tx <= b.x+1.5 && ty >= b.y-0.5 && ty <= b.y+1.5) return true;
+    }
+    return false;
+}
+
+function update(dt) {
+    if(dialogOpen) return;
+    // Check if any non-start screen is active
+    const activeScreen = document.querySelector('.screen.active');
+    if(activeScreen && activeScreen.id !== 'start') return;
+
+    if(shake > 0) shake -= 0.5;
+
+    let moveX = 0, moveY = 0;
+    if(keys['w']||keys['arrowup']) moveY=-1; else if(keys['s']||keys['arrowdown']) moveY=1;
+    if(keys['a']||keys['arrowleft']) moveX=-1; else if(keys['d']||keys['arrowright']) moveX=1;
+    if(player.vx||player.vy) { moveX = player.vx; moveY = player.vy; }
+
+    if(moveX||moveY) {
+        const len = Math.sqrt(moveX*moveX + moveY*moveY);
+        if(len > 1) { moveX /= len; moveY /= len; }
+        const nextX = player.x + moveX * player.speed;
+        const nextY = player.y + moveY * player.speed;
+        if(isWalkable(nextX, nextY)) {
+            player.x = nextX; player.y = nextY;
+            player.moving = true; player.frame += 0.2;
+            player.dir = Math.abs(moveX)>Math.abs(moveY) ? (moveX>0?'right':'left') : (moveY>0?'down':'up');
+            player.scaleX = 0.9 + Math.sin(player.frame*2)*0.1;
+            player.scaleY = 1.1 - Math.sin(player.frame*2)*0.1;
+        } else {
+            if(isWalkable(nextX, player.y)) { player.x=nextX; player.moving=true; }
+            else if(isWalkable(player.x, nextY)) { player.y=nextY; player.moving=true; }
+            else player.moving = false;
+        }
+    } else {
+        player.moving = false; player.frame = 0;
+        player.scaleX += (1-player.scaleX)*0.2;
+        player.scaleY += (1-player.scaleY)*0.2;
+    }
+
+    player.x = Math.max(0, Math.min(WORLD_SIZE*TILE_SIZE, player.x));
+    player.y = Math.max(0, Math.min(WORLD_SIZE*TILE_SIZE, player.y));
+
+    const viewW = window.innerWidth, viewH = window.innerHeight;
+    const worldLimit = WORLD_SIZE * TILE_SIZE;
+    let tCamX = Math.max(0, Math.min(worldLimit-viewW, player.x-viewW/2));
+    let tCamY = Math.max(0, Math.min(worldLimit-viewH, player.y-viewH/2));
+    camera.x += (tCamX - camera.x) * 0.08;
+    camera.y += (tCamY - camera.y) * 0.08;
+
+    // Arrow navigation
+    const bArrow = document.getElementById('boatArrow');
+    const rArrow = document.getElementById('returnArrow');
+    const bossArrow = document.getElementById('bossArrow');
+    const gArrow = document.getElementById('guideArrow');
+    const eArrow = document.getElementById('extraBoatArrow');
+
+    let targetProgressionBoat=null, targetReturnBoat=null, targetAltBoat=null, targetBoss=null;
+
+    boats.forEach(b => {
+        const onCurrentIsland = islands.find(isl => isl.name===currentIslandName &&
+            b.x>=isl.x-5 && b.x<=isl.x+isl.w+5 && b.y>=isl.y-5 && b.y<=isl.y+isl.h+5);
+        if(onCurrentIsland) {
+            if(b.req>0) { if(!targetProgressionBoat) targetProgressionBoat=b; else targetAltBoat=b; }
+            else targetReturnBoat=b;
+        }
+    });
+    bosses.forEach((b,idx) => { if(b.island===currentIslandName && !defeatedBosses.includes(idx)) targetBoss=b; });
+
+    if(unlocked <= elements.length) {
+        const el = elements[unlocked-1];
+        if(el.island===currentIslandName) {
+            const ang = Math.atan2(el.y*TILE_SIZE+24-player.y, el.x*TILE_SIZE+24-player.x);
+            gArrow.style.display='flex'; gArrow.style.transform="rotate("+(ang*180/Math.PI+90)+"deg)";
+        } else gArrow.style.display='none';
+    } else gArrow.style.display='none';
+
+    if(targetProgressionBoat) {
+        const bossDone = targetProgressionBoat.bossReq===undefined || defeatedBosses.includes(targetProgressionBoat.bossReq);
+        const hasElements = unlocked > targetProgressionBoat.req;
+        const ready = hasElements && bossDone;
+        const dist = Math.hypot(player.x-(targetProgressionBoat.x*TILE_SIZE+24), player.y-(targetProgressionBoat.y*TILE_SIZE+24));
+        if(dist > 120) {
+            const ang = Math.atan2(targetProgressionBoat.y*TILE_SIZE+24-player.y, targetProgressionBoat.x*TILE_SIZE+24-player.x);
+            bArrow.style.display='flex'; bArrow.style.transform="rotate("+(ang*180/Math.PI+90)+"deg)";
+            if(ready) { bArrow.style.setProperty('--arrow-color','#2ecc71'); bArrow.classList.add('pulse-ready'); }
+            else { bArrow.style.setProperty('--arrow-color','#e67e22'); bArrow.classList.remove('pulse-ready'); }
+        } else bArrow.style.display='none';
+    } else bArrow.style.display='none';
+
+    if(targetReturnBoat) {
+        const dist = Math.hypot(player.x-(targetReturnBoat.x*TILE_SIZE+24), player.y-(targetReturnBoat.y*TILE_SIZE+24));
+        if(dist>200) { const ang=Math.atan2(targetReturnBoat.y*TILE_SIZE+24-player.y, targetReturnBoat.x*TILE_SIZE+24-player.x); rArrow.style.display='flex'; rArrow.style.transform="rotate("+(ang*180/Math.PI+90)+"deg)"; }
+        else rArrow.style.display='none';
+    } else rArrow.style.display='none';
+
+    if(targetBoss) {
+        const dist = Math.hypot(player.x-(targetBoss.x*TILE_SIZE+24), player.y-(targetBoss.y*TILE_SIZE+24));
+        if(dist>100 && unlocked>=targetBoss.req) { const ang=Math.atan2(targetBoss.y*TILE_SIZE+24-player.y, targetBoss.x*TILE_SIZE+24-player.x); bossArrow.style.display='flex'; bossArrow.style.transform="rotate("+(ang*180/Math.PI+90)+"deg)"; }
+        else bossArrow.style.display='none';
+    } else bossArrow.style.display='none';
+
+    if(targetAltBoat) {
+        const dist = Math.hypot(player.x-(targetAltBoat.x*TILE_SIZE+24), player.y-(targetAltBoat.y*TILE_SIZE+24));
+        if(dist>150) { const ang=Math.atan2(targetAltBoat.y*TILE_SIZE+24-player.y, targetAltBoat.x*TILE_SIZE+24-player.x); eArrow.style.display='flex'; eArrow.style.transform="rotate("+(ang*180/Math.PI+90)+"deg)"; }
+        else eArrow.style.display='none';
+    } else eArrow.style.display='none';
+
+    // Interaction targets
+    interactTarget = null;
+    if(unlocked<=elements.length) {
+        const el = elements[unlocked-1];
+        const dist = Math.hypot(player.x-(el.x*TILE_SIZE+24), player.y-(el.y*TILE_SIZE+24));
+        if(dist<45) interactTarget = { type:'element', data:unlocked-1 };
+    }
+    npcs.forEach((n,idx) => {
+        if(!n.wait) {
+            n.x += (Math.random()-0.5)*0.05; n.y += (Math.random()-0.5)*0.05;
+            if(Math.abs(n.x-n.ox)>2) n.x -= (n.x-n.ox)*0.1;
+            if(Math.abs(n.y-n.oy)>2) n.y -= (n.y-n.oy)*0.1;
+        }
+        const dist = Math.hypot(player.x-(n.x*TILE_SIZE+24), player.y-(n.y*TILE_SIZE+24));
+        if(dist<50) interactTarget = { type:'npc', data:idx };
+    });
+    boats.forEach((b,idx) => {
+        const dist = Math.hypot(player.x-(b.x*TILE_SIZE+24), player.y-(b.y*TILE_SIZE+24));
+        if(dist<60) interactTarget = { type:'boat', data:idx };
+    });
+    bosses.forEach((b,idx) => {
+        const dist = Math.hypot(player.x-b.x*TILE_SIZE, player.y-b.y*TILE_SIZE);
+        if(dist<80 && unlocked>=b.req) interactTarget = { type:'boss', data:idx };
+    });
+
+    const btnA = document.getElementById('btnA');
+    if(interactTarget) {
+        btnA.classList.remove('disabled');
+        btnA.classList.add('pulse');
+        if(keys[' ']||keys['enter']) { keys[' ']=false; keys['enter']=false; handleAction(); }
+    } else {
+        btnA.classList.add('disabled');
+        btnA.classList.remove('pulse');
+    }
+
+    islands.forEach(isl => {
+        if(player.x/TILE_SIZE>=isl.x && player.x/TILE_SIZE<=isl.x+isl.w && player.y/TILE_SIZE>=isl.y && player.y/TILE_SIZE<=isl.y+isl.h) {
+            if(currentIslandName!==isl.name) {
+                currentIslandName=isl.name;
+                document.getElementById('currentIsland').innerText="📍 "+currentIslandName.toUpperCase();
+                updateIslandXP();
+            }
+        }
+    });
+
+    const cx = Math.floor(player.x/(TILE_SIZE*CHUNK_SIZE));
+    const cy = Math.floor(player.y/(TILE_SIZE*CHUNK_SIZE));
+    for(let i=-1; i<=1; i++) for(let j=-1; j<=1; j++) visitedChunks.add((cx+i)+","+(cy+j));
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const time = Date.now();
+    const viewW = window.innerWidth, viewH = window.innerHeight;
+
+    ctx.save();
+    if(shake>0) ctx.translate((Math.random()-0.5)*shake, (Math.random()-0.5)*shake);
+
+    ctx.fillStyle = "#1b4f72";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.save();
+    ctx.translate(-camera.x*0.2, -camera.y*0.2);
+    ctx.fillStyle = "rgba(255,255,255,0.05)";
+    for(let i=0; i<20; i++) ctx.fillRect((i*300)%2000, (i*500)%2000, 100, 2);
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(-camera.x, -camera.y);
+
+    const viewL=camera.x-100, viewR=camera.x+viewW+100;
+    const viewT=camera.y-100, viewB=camera.y+viewH+100;
+
+    islands.forEach(isl => {
+        const ix=isl.x*TILE_SIZE, iy=isl.y*TILE_SIZE, iw=isl.w*TILE_SIZE, ih=isl.h*TILE_SIZE;
+        if(ix+iw<viewL||ix>viewR||iy+ih<viewT||iy>viewB) return;
+        ctx.strokeStyle="rgba(255,255,255,"+(0.1+Math.sin(time*0.002)*0.05)+")"; ctx.lineWidth=4;
+        ctx.strokeRect(ix-8,iy-8,iw+16,ih+16);
+        ctx.fillStyle="rgba(0,0,0,0.2)"; ctx.fillRect(ix+12,iy+12,iw,ih);
+        ctx.fillStyle=isl.color; ctx.fillRect(ix,iy,iw,ih);
+        isl.lights.forEach(l => {
+            if(l.x+l.r<viewL||l.x-l.r>viewR||l.y+l.r<viewT||l.y-l.r>viewB) return;
+            let lg=ctx.createRadialGradient(l.x,l.y,0,l.x,l.y,l.r);
+            lg.addColorStop(0,l.color); lg.addColorStop(1,"rgba(0,0,0,0)");
+            ctx.fillStyle=lg; ctx.globalCompositeOperation="screen";
+            ctx.beginPath(); ctx.arc(l.x,l.y,l.r,0,Math.PI*2); ctx.fill();
+            ctx.globalCompositeOperation="source-over";
+        });
+        ctx.fillStyle="rgba(0,0,0,0.05)";
+        for(let i=0; i<iw; i+=TILE_SIZE*2) { ctx.fillRect(ix+i,iy,2,ih); ctx.fillRect(ix,iy+i,iw,2); }
+    });
+
+    boats.forEach(b => {
+        const bx=b.x*TILE_SIZE, by=b.y*TILE_SIZE;
+        if(bx+100<viewL||bx-100>viewR||by+100<viewT||by-100>viewB) return;
+        ctx.fillStyle="#5d4037"; ctx.fillRect(bx,by,48,48);
+        const float=Math.sin(time*0.003)*5;
+        const bvx=b.dir==='left'?bx-40:bx+50;
+        ctx.fillStyle="#795548"; ctx.beginPath();
+        ctx.moveTo(bvx,by+float); ctx.lineTo(bvx+40,by+float+10); ctx.lineTo(bvx+35,by+float+30); ctx.lineTo(bvx+5,by+float+30);
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle="rgba(255,255,255,0.8)"; ctx.fillRect(bvx+15,by+float-10,15,15);
+    });
+
+    deco.forEach(d => {
+        if(d.x+50<viewL||d.x-50>viewR||d.y+50<viewT||d.y-50>viewB) return;
+        if(d.type==='tree') {
+            ctx.fillStyle="#3e2723"; ctx.fillRect(d.x+20,d.y+32,8,12);
+            ctx.fillStyle="#1b5e20"; ctx.beginPath(); ctx.moveTo(d.x+24,d.y+5); ctx.lineTo(d.x+5,d.y+35); ctx.lineTo(d.x+43,d.y+35); ctx.fill();
+        } else if(d.type==='flower'||d.type==='mushroom') {
+            ctx.fillStyle=d.type==='flower'?"#e91e63":"#ff5722";
+            ctx.beginPath(); ctx.arc(d.x+24,d.y+30,6,0,Math.PI*2); ctx.fill();
+            ctx.fillStyle="#4caf50"; ctx.fillRect(d.x+23,d.y+36,2,8);
+        } else if(d.type==='crystal'||d.type==='orb') {
+            const pulse=Math.sin(time*0.005+d.x)*0.3+0.7;
+            ctx.save(); ctx.shadowBlur=15*pulse; ctx.shadowColor=d.color; ctx.fillStyle=d.color; ctx.globalAlpha=pulse;
+            ctx.beginPath(); ctx.arc(d.x+24,d.y+24,8,0,Math.PI*2); ctx.fill(); ctx.restore();
+        } else if(d.type==='gem') {
+            ctx.fillStyle="#00bcd4"; ctx.beginPath();
+            ctx.moveTo(d.x+24,d.y+15); ctx.lineTo(d.x+34,d.y+25); ctx.lineTo(d.x+24,d.y+40); ctx.lineTo(d.x+14,d.y+25); ctx.closePath(); ctx.fill();
+        } else if(d.type==='barrel') {
+            ctx.fillStyle="#2c3e50"; ctx.fillRect(d.x+15,d.y+20,18,25);
+            ctx.fillStyle="#f1c40f"; ctx.fillRect(d.x+15,d.y+28,18,8);
+        } else if(d.type==='goo') {
+            ctx.fillStyle="#2ecc71"; ctx.beginPath(); ctx.ellipse(d.x+24,d.y+40,15,8,0,0,Math.PI*2); ctx.fill();
+            if(time%1000<500) { ctx.beginPath(); ctx.arc(d.x+24,d.y+35,4,0,Math.PI*2); ctx.fill(); }
+        } else if(d.type==='ore') {
+            ctx.fillStyle="#333"; ctx.fillRect(d.x+15,d.y+25,18,18);
+            if(time%2000<200) { ctx.fillStyle="#fff"; ctx.fillRect(d.x+18,d.y+28,4,4); }
+        } else {
+            ctx.fillStyle="rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.arc(d.x+24,d.y+38,12,0,Math.PI*2); ctx.fill();
+            ctx.fillStyle="#7f8c8d"; ctx.beginPath(); ctx.arc(d.x+24,d.y+35,10,0,Math.PI*2); ctx.fill();
+        }
+    });
+
+    for(let i=particles.length-1; i>=0; i--) {
+        let p=particles[i]; p.x+=p.vx; p.y+=p.vy; p.life-=0.02;
+        if(p.life<=0) { particles.splice(i,1); continue; }
+        if(p.x<viewL||p.x>viewR||p.y<viewT||p.y>viewB) continue;
+        ctx.globalAlpha=p.life; ctx.fillStyle=p.color; ctx.fillRect(p.x,p.y,3,3);
+    }
+    ctx.globalAlpha=1.0;
+
+    npcs.forEach(n => {
+        const nx=n.x*TILE_SIZE+24, ny=n.y*TILE_SIZE+24;
+        if(nx+50<viewL||nx-50>viewR||ny+50<viewT||ny-50>viewB) return;
+        const bob=Math.sin(time*0.004)*3;
+        ctx.fillStyle="rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(nx,ny+18,12,4,0,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle="#e67e22"; ctx.fillRect(nx-10,ny-10+bob,20,25);
+        ctx.fillStyle="#ffe0bd"; ctx.fillRect(nx-8,ny-20+bob,16,14);
+        ctx.save(); ctx.shadowBlur=10; ctx.shadowColor="#f1c40f";
+        ctx.fillStyle="#f1c40f"; ctx.fillRect(nx-2,ny-40+bob+Math.sin(time*0.01)*5,4,10);
+        ctx.restore();
+    });
+
+    bosses.forEach((b,idx) => {
+        const bx=b.x*TILE_SIZE, by=b.y*TILE_SIZE;
+        if(bx+100<viewL||bx-100>viewR||by+100<viewT||by-100>viewB) return;
+        const isDefeated=defeatedBosses.includes(idx);
+        ctx.fillStyle=isDefeated?"#95a5a6":"#333"; ctx.fillRect(bx,by,48,12);
+        ctx.fillStyle=isDefeated?"#bdc3c7":"#555"; ctx.fillRect(bx+4,by-32,40,32);
+        if(!isDefeated) {
+            const pulse=0.5+Math.sin(time*0.003)*0.5;
+            ctx.strokeStyle="cyan"; ctx.lineWidth=2; ctx.globalAlpha=pulse;
+            ctx.beginPath(); ctx.arc(bx+24,by-16,18,0,Math.PI*2); ctx.stroke(); ctx.globalAlpha=1.0;
+        } else {
+            ctx.fillStyle="#2ecc71"; ctx.beginPath(); ctx.arc(bx+24,by-16,8,0,Math.PI*2); ctx.fill();
+        }
+        if(unlocked>=b.req) {
+            ctx.fillStyle="#fff"; ctx.font="bold 12px monospace"; ctx.textAlign="center";
+            ctx.fillText(isDefeated?"VENCIDO":"BOSS", bx+24, by-40); ctx.font="24px 'VT323', monospace";
+        }
+    });
+
+    if(unlocked<=elements.length) {
+        const el=elements[unlocked-1];
+        const ex=el.x*TILE_SIZE, ey=el.y*TILE_SIZE;
+        if(!(ex+100<viewL||ex-100>viewR||ey+100<viewT||ey-100>viewB)) {
+            const bounce=Math.sin(time*0.005)*10;
+            const glowPulse=0.8+Math.sin(time*0.01)*0.2;
+            ctx.save(); ctx.shadowBlur=25*glowPulse; ctx.shadowColor=el.color; ctx.fillStyle=el.color;
+            ctx.fillRect(ex+8,ey+8+bounce,32,32); ctx.restore();
+            ctx.strokeStyle="rgba(255,255,255,0.8)"; ctx.lineWidth=3; ctx.strokeRect(ex+8,ey+8+bounce,32,32);
+            ctx.fillStyle="#fff"; ctx.font="bold 22px VT323"; ctx.textAlign="center";
+            ctx.fillText(el.symbol,ex+24,ey+28+bounce);
+        }
+    }
+
+    // Player
+    ctx.save();
+    ctx.translate(player.x, player.y);
+    ctx.scale(player.scaleX, player.scaleY);
+    const walkBob=player.moving?Math.sin(player.frame*2)*4:Math.sin(time*0.002)*2;
+    ctx.fillStyle="rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.ellipse(0,15,14,5,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle="#3498db"; ctx.fillRect(-15,-12+walkBob,30,22);
+    ctx.fillStyle="#ffe0bd"; ctx.fillRect(-11,-25+walkBob,22,16);
+    ctx.fillStyle="#2c3e50"; ctx.fillRect(-13,-28+walkBob,26,7);
+    if(player.moving&&Math.random()>0.7) { ctx.restore(); createParticle(player.x,player.y+15,"rgba(255,255,255,0.4)",1,0.5); ctx.save(); ctx.translate(player.x,player.y); ctx.scale(player.scaleX,player.scaleY); }
+    ctx.restore();
+
+    ctx.save();
+    let pLight=ctx.createRadialGradient(player.x,player.y,0,player.x,player.y,150);
+    pLight.addColorStop(0,"rgba(255,255,200,0.15)"); pLight.addColorStop(1,"rgba(0,0,0,0)");
+    ctx.fillStyle=pLight; ctx.globalCompositeOperation="screen";
+    ctx.beginPath(); ctx.arc(player.x,player.y,150,0,Math.PI*2); ctx.fill(); ctx.restore();
+
+    ctx.restore(); // world translation
+
+    ctx.save();
+    ctx.translate(-camera.x*1.6, -camera.y*1.6);
+    ctx.fillStyle="rgba(255,255,255,0.12)";
+    clouds.forEach(c => {
+        c.x+=0.4; if(c.x>WORLD_SIZE*TILE_SIZE) c.x=-200;
+        ctx.beginPath(); ctx.arc(c.x,c.y,c.w/2,0,Math.PI*2); ctx.fill();
+    });
+    ctx.restore();
+
+    const vrad=Math.max(canvas.width,canvas.height)*0.9;
+    let vgrad=ctx.createRadialGradient(canvas.width/2,canvas.height/2,vrad*0.3,canvas.width/2,canvas.height/2,vrad);
+    vgrad.addColorStop(0,"rgba(0,0,0,0)"); vgrad.addColorStop(1,"rgba(0,0,0,0.5)");
+    ctx.fillStyle=vgrad; ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.globalCompositeOperation="soft-light"; ctx.fillStyle="rgba(41,128,185,0.2)"; ctx.fillRect(0,0,canvas.width,canvas.height); ctx.globalCompositeOperation="source-over";
+
+    ctx.restore();
+}
+
+// ===================== ACTIONS =====================
+function handleAction() {
+    if(!interactTarget || dialogOpen) return;
+    const { type, data } = interactTarget;
+    if(type==='element') startQuiz(data);
+    else if(type==='boss') startBoss(data);
+    else if(type==='npc') { const n=npcs[data]; sayNPC(n.name, n.msg); }
+    else if(type==='boat') {
+        const b=boats[data];
+        const bossDone=b.bossReq===undefined||defeatedBosses.includes(b.bossReq);
+        if(unlocked>b.req && bossDone) {
+            sayNPC("CAPITÃO", b.activeMsg, b.id);
+        } else {
+            sayNPC("CAPITÃO", b.msg);
+        }
+    }
+    interactTarget = null;
+}
+
+function sayNPC(name, text, boatId) {
+    dialogOpen = true;
+    document.getElementById('npcName').innerText = name.toUpperCase();
+    const npcText = document.getElementById('npcText');
+    npcText.innerHTML = text;
+
+    if(boatId !== undefined) {
+        const row = document.createElement('div');
+        row.className = 'dialog-btn-row';
+
+        const yesBtn = document.createElement('button');
+        yesBtn.innerText = 'SIM, VAMOS!';
+        yesBtn.style.background = '#2ecc71'; yesBtn.style.color = 'white';
+        yesBtn.addEventListener('pointerdown', function(e) { e.preventDefault(); e.stopPropagation(); travel(boatId); });
+
+        const noBtn = document.createElement('button');
+        noBtn.innerText = 'AINDA NÃO';
+        noBtn.addEventListener('pointerdown', function(e) { e.preventDefault(); e.stopPropagation(); closeDialog(); });
+
+        row.appendChild(yesBtn); row.appendChild(noBtn);
+        npcText.appendChild(row);
+    }
+
+    document.getElementById('npcDialog').style.display = 'block';
+}
+
+function closeDialog() {
+    dialogOpen = false;
+    document.getElementById('npcDialog').style.display = 'none';
+}
+
+function travel(boatId) {
+    const b = boats.find(x => x.id===boatId);
+    if(!b) return;
+    closeDialog();
+    const overlay = document.getElementById('fadeOverlay');
+    overlay.style.opacity = "1";
+    setTimeout(() => {
+        player.x = b.targetX * TILE_SIZE;
+        player.y = b.targetY * TILE_SIZE;
+        camera.x = player.x - canvas.width/2;
+        camera.y = player.y - canvas.height/2;
+        overlay.style.opacity = "0";
+    }, 600);
+}
+
+// ===================== QUIZ =====================
+function startQuiz(idx) {
+    const el = elements[idx];
+    document.getElementById('quizIntroSection').style.display='block';
+    document.getElementById('quizQuestionSection').style.display='none';
+    document.getElementById('introTitle').innerText="ANÁLISE: "+el.name.toUpperCase();
+    document.getElementById('introText').innerText=el.info;
+    showScreen('quiz');
+}
+
+function startBoss(idx) {
+    bossIdx = idx;
+    const b = bosses[idx];
+    document.getElementById('quizIntroSection').style.display='block';
+    document.getElementById('quizQuestionSection').style.display='none';
+    document.getElementById('introTitle').innerText="BOSS: "+b.name.toUpperCase();
+    document.getElementById('introText').innerHTML="<b>"+b.intro+"</b><br><br>Você precisa sintetizar seus conhecimentos para avançar!";
+    showScreen('quiz');
+}
+
+function showQuestion() {
+    document.getElementById('quizIntroSection').style.display='none';
+    document.getElementById('quizQuestionSection').style.display='block';
+    let q;
+    if(bossIdx!==-1) q=bosses[bossIdx].questions[currentElementQuestProgress];
+    else { let el=elements[unlocked-1]; q=el.questions[currentElementQuestProgress]; }
+    const totalQ=bossIdx!==-1?bosses[bossIdx].questions.length:QUESTIONS_PER_ELEMENT;
+    document.getElementById('quizQuest').innerHTML="<div style='color:#e67e22; font-size:13px; margin-bottom:5px;'>PERGUNTA "+(currentElementQuestProgress+1)+" DE "+totalQ+"</div>"+q.q;
+    const opts = document.getElementById('quizOptions');
+    opts.innerHTML = '';
+    q.a.forEach((opt, i) => {
+        const btn = document.createElement('button');
+        btn.innerText = opt;
+        btn.addEventListener('pointerdown', function(e) { e.preventDefault(); answerQuiz(i); });
+        opts.appendChild(btn);
+    });
+}
+
+function answerQuiz(idx) {
+    const buttons = document.getElementById('quizOptions').querySelectorAll('button');
+    let q, targetName;
+    if(bossIdx!==-1) { q=bosses[bossIdx].questions[currentElementQuestProgress]; targetName=bosses[bossIdx].name; }
+    else { q=elements[unlocked-1].questions[currentElementQuestProgress]; targetName=elements[unlocked-1].name; }
+
+    const correct = q.a[idx]===q.c;
+    buttons.forEach(b => b.disabled=true);
+    buttons[idx].style.background = correct?"#2ecc71":"#e74c3c";
+    buttons[idx].style.color = "#fff";
+
+    setTimeout(() => {
+        if(correct) {
+            currentElementQuestProgress++;
+            const totalQ=bossIdx!==-1?bosses[bossIdx].questions.length:QUESTIONS_PER_ELEMENT;
+            if(currentElementQuestProgress>=totalQ) {
+                hideScreen('quiz');
+                shake=20;
+                createParticle(player.x,player.y,"#f1c40f",40,8);
+                if(bossIdx!==-1) {
+                    if(!defeatedBosses.includes(bossIdx)) defeatedBosses.push(bossIdx);
+                    if(bossIdx===5) {
+                        showScreen('victory');
+                        document.getElementById('victoryStats').innerText=playerName.toUpperCase()+", você coletou os 118 elementos e dominou o segredo do núcleo atômico!";
+                    } else {
+                        sayNPC("SISTEMA","BOSS DERROTADO! "+targetName+" foi vencido. O caminho para a próxima região está aberto!");
+                    }
+                    bossIdx=-1;
+                } else {
+                    unlocked++; xp+=150; updateUI();
+                    autoSave();
+                    if(unlocked>elements.length) sayNPC("SISTEMA","EXTRAORDINÁRIO! Você coletou todos os elementos!");
+                    else { const next=elements[unlocked-1]; sayNPC("SISTEMA","<b>NÍVEL UP!</b><br>Análise de <b>"+targetName+"</b> concluída.<br><br>Próximo objetivo: <b>"+next.name+"</b>."); }
+                }
+                currentElementQuestProgress=0;
+            } else showQuestion();
+        } else {
+            hideScreen('quiz');
+            shake=25; createParticle(player.x,player.y,"#ff0000",20,10);
+            currentElementQuestProgress=0; bossIdx=-1;
+            sayNPC("SISTEMA","ALERTA: Falha na análise de "+targetName+". Reiniciando sequência!");
+        }
+    }, 800);
+}
+
+// ===================== UI =====================
+function updateUI() {
+    currentLevel = unlocked;
+    document.getElementById('lvl').innerText = currentLevel;
+    // Pulse the lab button when at least 2 elements collected
+    const labBtn = document.getElementById('btnLab');
+    if(labBtn) labBtn.classList.toggle('ready', unlocked > 2);
+    const count = unlocked-1;
+    document.getElementById('collectCount').innerText = count;
+    if(document.getElementById('collectCount2')) document.getElementById('collectCount2').innerText = count;
+    document.getElementById('playerNameDisplay').innerText = playerName.toUpperCase();
+    const perc = (count/elements.length)*100;
+    document.getElementById('playerXpFill').style.width = perc+"%";
+    updateQuestUI(); updateIslandXP();
+}
+
+function updateIslandXP() {
+    let total=elements.filter(e=>e.island===currentIslandName).length;
+    let collected=elements.filter((e,i)=>e.island===currentIslandName&&i<unlocked-1).length;
+    document.getElementById('islandXp').style.width=(total>0?(collected/total)*100:0)+"%";
+}
+
+function updateQuestUI() {
+    if(unlocked<=elements.length) document.getElementById('questStatus').innerText="MISSÃO: "+elements[unlocked-1].name.toUpperCase();
+    else document.getElementById('questStatus').innerText="CONCLUÍDO!";
+}
+
+function renderBackpack() {
+    let h="";
+    for(let i=0; i<elements.length; i++) {
+        const el=elements[i];
+        if(unlocked>i+1) h+="<div class='grid-slot filled' style='background:"+el.color+"'><b>"+el.symbol+"</b><div style='font-size:9px; line-height:0.9;'>"+el.name+"</div></div>";
+        else h+="<div class='grid-slot'>?</div>";
+    }
+    document.getElementById('backpackGrid').innerHTML=h;
+}
+
+function renderMap() {
+    const mCanvas=document.getElementById('mapCanvas'), mCtx=mCanvas.getContext('2d');
+    mCanvas.width=400; mCanvas.height=400;
+    const scale=400/WORLD_SIZE;
+
+    // Ocean
+    mCtx.fillStyle="#1b4f72"; mCtx.fillRect(0,0,400,400);
+
+    // Ocean wave grid
+    mCtx.strokeStyle="rgba(255,255,255,0.05)"; mCtx.lineWidth=1;
+    for(let i=0;i<400;i+=20) { mCtx.beginPath(); mCtx.moveTo(i,0); mCtx.lineTo(i,400); mCtx.stroke(); mCtx.beginPath(); mCtx.moveTo(0,i); mCtx.lineTo(400,i); mCtx.stroke(); }
+
+    // Islands with border glow
+    islands.forEach(isl => {
+        const ix=isl.x*scale, iy=isl.y*scale, iw=isl.w*scale, ih=isl.h*scale;
+        // Shadow
+        mCtx.fillStyle="rgba(0,0,0,0.3)"; mCtx.fillRect(ix+3,iy+3,iw,ih);
+        // Fill
+        mCtx.fillStyle=isl.color; mCtx.fillRect(ix,iy,iw,ih);
+        // Highlight if current island
+        if(isl.name===currentIslandName) {
+            mCtx.strokeStyle="#f1c40f"; mCtx.lineWidth=3;
+            mCtx.strokeRect(ix-1,iy-1,iw+2,ih+2);
+        }
+        // Island label background
+        const labelY = iy + ih/2;
+        const labelX = ix + iw/2;
+        mCtx.save();
+        mCtx.font = "bold 11px monospace";
+        mCtx.textAlign = "center";
+        mCtx.textBaseline = "middle";
+        // Draw text shadow
+        mCtx.fillStyle="rgba(0,0,0,0.8)";
+        const shortName = isl.name.toUpperCase();
+        const words = shortName.split(' ');
+        words.forEach((word, wi) => {
+            const lineY = labelY + (wi - (words.length-1)/2) * 13;
+            mCtx.fillText(word, labelX+1, lineY+1);
+        });
+        // Draw text
+        mCtx.fillStyle="#fff";
+        words.forEach((word, wi) => {
+            const lineY = labelY + (wi - (words.length-1)/2) * 13;
+            mCtx.fillText(word, labelX, lineY);
+        });
+        mCtx.restore();
+    });
+
+    // Fog of war
+    for(let x=0; x<WORLD_SIZE/CHUNK_SIZE; x++) {
+        for(let y=0; y<WORLD_SIZE/CHUNK_SIZE; y++) {
+            if(!visitedChunks.has(x+","+y)) { mCtx.fillStyle="rgba(0,0,0,0.82)"; mCtx.fillRect(x*CHUNK_SIZE*scale,y*CHUNK_SIZE*scale,CHUNK_SIZE*scale+1,CHUNK_SIZE*scale+1); }
+        }
+    }
+
+    // Boat markers (visible regardless of fog)
+    boats.forEach(b => {
+        const bx=b.x*scale, by=b.y*scale;
+        mCtx.fillStyle="#f39c12";
+        mCtx.beginPath(); mCtx.arc(bx,by,4,0,Math.PI*2); mCtx.fill();
+        mCtx.strokeStyle="#333"; mCtx.lineWidth=1; mCtx.stroke();
+    });
+
+    // Player marker
+    mCtx.fillStyle="#fff"; mCtx.strokeStyle="#000"; mCtx.lineWidth=2;
+    const px=(player.x/TILE_SIZE)*scale, py=(player.y/TILE_SIZE)*scale;
+    mCtx.beginPath(); mCtx.arc(px,py,5,0,Math.PI*2); mCtx.fill(); mCtx.stroke();
+    // Pulsing ring
+    mCtx.strokeStyle="#f1c40f"; mCtx.lineWidth=2; mCtx.globalAlpha=0.6;
+    mCtx.beginPath(); mCtx.arc(px,py,8,0,Math.PI*2); mCtx.stroke();
+    mCtx.globalAlpha=1;
+}
+
+// ===================== SAVE/LOAD =====================
+function saveGame(silent) {
+    const saveData = { unlocked, playerName, playerX:player.x, playerY:player.y, currentLevel, currentIsland:currentIslandName, defeatedBosses, discoveredRecipes };
+    localStorage.setItem('questElementsSave_'+currentSaveSlot, JSON.stringify(saveData));
+    if(silent) {
+        showAutoSaveToast();
+    } else {
+        alert("Progresso Salvo no Slot "+currentSaveSlot+"!");
+        hideScreen('ingameMenu');
+    }
+}
+
+let autoSaveToastTimer = null;
+function showAutoSaveToast() {
+    let toast = document.getElementById('autoSaveToast');
+    if(!toast) {
+        toast = document.createElement('div');
+        toast.id = 'autoSaveToast';
+        toast.style.cssText = 'position:fixed;top:80px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.75);color:#2ecc71;font-family:VT323,monospace;font-size:18px;padding:8px 18px;border:2px solid #2ecc71;border-radius:6px;z-index:9999;pointer-events:none;transition:opacity 0.5s;';
+        document.body.appendChild(toast);
+    }
+    toast.innerText = '💾 SALVO AUTOMATICAMENTE';
+    toast.style.opacity = '1';
+    clearTimeout(autoSaveToastTimer);
+    autoSaveToastTimer = setTimeout(() => { toast.style.opacity = '0'; }, 2500);
+}
+
+function autoSave() {
+    if(!gameStarted) return;
+    saveGame(true);
+}
+
+function loadGame(slot) {
+    currentSaveSlot = slot;
+    const data = localStorage.getItem('questElementsSave_'+slot);
+    if(!data) { alert("Nenhum progresso encontrado!"); return false; }
+    const saved = JSON.parse(data);
+    unlocked=saved.unlocked; playerName=saved.playerName;
+    player.x=saved.playerX; player.y=saved.playerY;
+    currentLevel=saved.currentLevel||1;
+    currentIslandName=saved.currentIsland||"Metais";
+    defeatedBosses=saved.defeatedBosses||[];
+    discoveredRecipes=saved.discoveredRecipes||[];
+    document.getElementById('playerNameDisplay').innerText=playerName;
+    return true;
+}
+
+function showSlotSelection(mode) {
+    slotMode = mode;
+    if(mode==='new') {
+        const name=document.getElementById('nameInput').value.trim();
+        if(!name) { alert("Por favor, digite seu nome de Alquimista antes de começar!"); return; }
+    }
+    document.getElementById('slotTitle').innerText=mode==='new'?"SALVAR EM:":"CARREGAR DE:";
+    for(let i=1; i<=3; i++) {
+        const data=localStorage.getItem('questElementsSave_'+i);
+        const btn=document.getElementById('slot'+i);
+        const info=btn.querySelector('.slot-info');
+        const delBtn=document.getElementById('del'+i);
+        if(data) {
+            const saved=JSON.parse(data);
+            info.innerText=saved.playerName+" ("+saved.unlocked+"/118)";
+            btn.style.borderColor="#3498db";
+            if(delBtn) delBtn.style.display='flex';
+        } else {
+            info.innerText="VAZIO"; btn.style.borderColor="#333";
+            if(delBtn) delBtn.style.display='none';
+        }
+    }
+    showScreen('slotSelection');
+}
+
+function selectSlot(slot) {
+    currentSaveSlot = slot;
+    if(slotMode==='new') {
+        const data=localStorage.getItem('questElementsSave_'+slot);
+        if(data && !confirm("Este slot já possui dados. Deseja sobrescrever?")) return;
+        playerName=document.getElementById('nameInput').value.trim();
+        unlocked=1; defeatedBosses=[]; player.x=35*TILE_SIZE; player.y=35*TILE_SIZE;
+        hideAllScreens();
+        startTutorial();
+    } else {
+        if(!loadGame(slot)) return;
+        startGame();
+    }
+}
+
+function deleteSlot(slot) {
+    if(confirm("DESEJA APAGAR O SLOT "+slot+"?")) {
+        localStorage.removeItem('questElementsSave_'+slot);
+        showSlotSelection(slotMode);
+    }
+}
+
+// ===================== SETUP CONTROLS =====================
+function setupControls() {
+    window.addEventListener('keydown', e => { if(e.key) keys[e.key.toLowerCase()]=true; });
+    window.addEventListener('keyup', e => { if(e.key) keys[e.key.toLowerCase()]=false; });
+
+    // Action button
+    const btnA = document.getElementById('btnA');
+    btnA.addEventListener('pointerdown', function(e) {
+        e.preventDefault();
+        if(!btnA.classList.contains('disabled')) handleAction();
+    });
+
+    // Joystick
+    const jBase = document.getElementById('joyBase');
+    const jKnob = document.getElementById('joyKnob');
+    let joystickActive = false;
+    let joyCenterX = 0, joyCenterY = 0;
+    const MAX_DIST = 45;
+
+    jBase.addEventListener('pointerdown', function(e) {
+        e.preventDefault();
+        joystickActive = true;
+        jBase.setPointerCapture(e.pointerId);
+        const r = jBase.getBoundingClientRect();
+        joyCenterX = r.left + r.width / 2;
+        joyCenterY = r.top + r.height / 2;
+    });
+
+    jBase.addEventListener('pointermove', function(e) {
+        if(!joystickActive) return;
+        e.preventDefault();
+        const dx = e.clientX - joyCenterX;
+        const dy = e.clientY - joyCenterY;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        const ang = Math.atan2(dy, dx);
+        const clamp = Math.min(dist, MAX_DIST);
+        const tx = Math.cos(ang) * clamp;
+        const ty = Math.sin(ang) * clamp;
+        jKnob.style.transform = "translate("+tx+"px,"+ty+"px)";
+        if(dist > 5) { player.vx = (tx/MAX_DIST)*1.2; player.vy = (ty/MAX_DIST)*1.2; }
+        else { player.vx = 0; player.vy = 0; }
+    });
+
+    const endJoy = function() {
+        joystickActive = false;
+        jKnob.style.transform = "";
+        player.vx = 0; player.vy = 0;
+    };
+    jBase.addEventListener('pointerup', endJoy);
+    jBase.addEventListener('pointercancel', endJoy);
+
+    // Map button
+    document.getElementById('btnMap').addEventListener('pointerdown', function(e) {
+        e.preventDefault();
+        renderMap();
+        const mapScreen = document.getElementById('map');
+        if(mapScreen.classList.contains('active')) hideScreen('map');
+        else showScreen('map');
+    });
+
+    // Items button
+    document.getElementById('btnItems').addEventListener('pointerdown', function(e) {
+        e.preventDefault();
+        renderBackpack();
+        const bpScreen = document.getElementById('backpack');
+        if(bpScreen.classList.contains('active')) hideScreen('backpack');
+        else showScreen('backpack');
+    });
+
+    // Menu button
+    document.getElementById('menuBtn').addEventListener('pointerdown', function(e) {
+        e.preventDefault();
+        const m = document.getElementById('ingameMenu');
+        if(m.classList.contains('active')) hideScreen('ingameMenu');
+        else showScreen('ingameMenu');
+    });
+
+    // NPC dialog close
+    document.getElementById('npcDialog').addEventListener('pointerdown', function(e) {
+        // Only close if not clicking a button inside
+        if(e.target.tagName !== 'BUTTON') { e.preventDefault(); closeDialog(); }
+    });
+
+    // Start screen buttons
+    document.getElementById('btnNewGame').addEventListener('pointerdown', function(e) { e.preventDefault(); showSlotSelection('new'); });
+    document.getElementById('btnLoadGame').addEventListener('pointerdown', function(e) { e.preventDefault(); showSlotSelection('load'); });
+    document.getElementById('btnSettings').addEventListener('pointerdown', function(e) { e.preventDefault(); showScreen('settings'); });
+
+    // Slot buttons
+    for(let i=1; i<=3; i++) {
+        (function(slot) {
+            document.getElementById('slot'+slot).addEventListener('pointerdown', function(e) { e.preventDefault(); selectSlot(slot); });
+            const del = document.getElementById('del'+slot);
+            if(del) del.addEventListener('pointerdown', function(e) { e.preventDefault(); e.stopPropagation(); deleteSlot(slot); });
+        })(i);
+    }
+    document.getElementById('btnBackSlot').addEventListener('pointerdown', function(e) { e.preventDefault(); showScreen('start'); });
+
+    // In-game menu
+    document.getElementById('btnSave').addEventListener('pointerdown', function(e) { e.preventDefault(); saveGame(); });
+    document.getElementById('btnSettingsIngame').addEventListener('pointerdown', function(e) { e.preventDefault(); showScreen('settings'); });
+    document.getElementById('btnMainMenu').addEventListener('pointerdown', function(e) { e.preventDefault(); if(confirm("Voltar ao menu principal? Progresso não salvo será perdido.")) location.reload(); });
+    document.getElementById('btnResume').addEventListener('pointerdown', function(e) { e.preventDefault(); hideScreen('ingameMenu'); });
+
+    // Settings
+    document.getElementById('btnCloseSettings').addEventListener('pointerdown', function(e) { e.preventDefault(); showScreen('start'); });
+
+    // Backpack / map close
+    document.getElementById('closeBackpack').addEventListener('pointerdown', function(e) { e.preventDefault(); hideScreen('backpack'); });
+    document.getElementById('closeMap').addEventListener('pointerdown', function(e) { e.preventDefault(); hideScreen('map'); });
+    document.getElementById('closeMapBtn').addEventListener('pointerdown', function(e) { e.preventDefault(); hideScreen('map'); });
+
+    // Quiz
+    document.getElementById('btnStartQuestion').addEventListener('pointerdown', function(e) { e.preventDefault(); showQuestion(); });
+
+    // Victory restart
+    document.getElementById('btnRestart').addEventListener('pointerdown', function(e) { e.preventDefault(); location.reload(); });
+
+    // Alchemy Lab
+    document.getElementById('btnLab').addEventListener('pointerdown', function(e) { e.preventDefault(); openAlchemy(); });
+    document.getElementById('closeAlchemy').addEventListener('pointerdown', function(e) { e.preventDefault(); closeAlchemy(); });
+    document.getElementById('btnSynth').addEventListener('pointerdown', function(e) { e.preventDefault(); tryAlchemySynth(); });
+
+    // Clear slots
+    for(let i=0;i<3;i++) {
+        (function(idx) {
+            document.getElementById('cs'+idx+'clr').addEventListener('pointerdown', function(e) { e.preventDefault(); e.stopPropagation(); clearLabSlot(idx); });
+        })(i);
+    }
+
+    // Tab switching
+    document.querySelectorAll('.lab-tab').forEach(tab => {
+        tab.addEventListener('pointerdown', function(e) { e.preventDefault(); switchLabTab(this.dataset.tab); });
+    });
+}
+
+// ===================== TUTORIAL INTRO =====================
+const TUT_SCENES = [
+    { speaker: 'DR. ÁTOMO', text: 'Ah, um novo explorador! Bem-vindo, [NAME]! Eu sou o Dr. Átomo — guardião da Grande Tabela Periódica!' },
+    { speaker: 'DR. ÁTOMO', text: 'Você está no Arquipélago dos Elementos, um mundo misterioso onde 30 elementos químicos foram espalhados por 6 ilhas!' },
+    { speaker: 'DR. ÁTOMO', text: 'Explore cada ilha, aproxime-se dos elementos brilhantes e pressione o botão A para coletá-los. Eles vão te desafiar com perguntas de química!' },
+    { speaker: 'DR. ÁTOMO', text: 'Use o joystick à esquerda para se mover. Explore cada canto — os elementos se escondem em lugares inusitados por toda a ilha!' },
+    { speaker: 'DR. ÁTOMO', text: 'No Laboratório de Alquimia você combina elementos coletados e descobre reações incríveis: água, ácidos, explosões e até uma bomba nuclear!' },
+    { speaker: 'DR. ÁTOMO', text: 'Derrote o guardião de cada ilha para desbloquear o barco e explorar novas terras. Boa sorte, jovem cientista! A ciência está com você! ⚗️' }
+];
+let tutAnimFrame = null;
+let tutStep = 0;
+let tutTyperTimer = null;
+let tutTyperDone = false;
+let tutStartTime = 0;
+
+function startTutorial() {
+    tutStep = 0;
+    tutStartTime = performance.now() / 1000;
+    const ov = document.getElementById('tutorialIntro');
+    ov.style.display = 'block';
+    ov.style.opacity = '1';
+    const tc = document.getElementById('tutCanvas');
+    function resizeTutCanvas() {
+        tc.width = ov.clientWidth || window.innerWidth;
+        tc.height = ov.clientHeight || window.innerHeight;
+    }
+    resizeTutCanvas();
+    window._tutResizer = resizeTutCanvas;
+    window.addEventListener('resize', window._tutResizer);
+    function onTutPointer(e) {
+        const skip = document.getElementById('tutSkip');
+        if (skip && skip.contains(e.target)) return;
+        e.preventDefault();
+        tutAdvance();
+    }
+    ov._tutHandler = onTutPointer;
+    ov.addEventListener('pointerdown', onTutPointer);
+    document.getElementById('tutSkip').addEventListener('pointerdown', function(e) {
+        e.stopPropagation(); endTutorial();
+    }, { once: true });
+    showTutLine(0);
+    function tutLoop() {
+        const t = performance.now() / 1000 - tutStartTime;
+        drawTutScene(document.getElementById('tutCanvas'), t);
+        tutAnimFrame = requestAnimationFrame(tutLoop);
+    }
+    tutAnimFrame = requestAnimationFrame(tutLoop);
+}
+function tutAdvance() {
+    if (!tutTyperDone) {
+        if (tutTyperTimer) { clearInterval(tutTyperTimer); tutTyperTimer = null; }
+        tutTyperDone = true;
+        const txt = TUT_SCENES[tutStep].text.replace('[NAME]', playerName || 'Explorador');
+        document.getElementById('tutText').innerText = txt;
+        document.getElementById('tutContinue').style.display = 'block';
+        return;
+    }
+    tutStep++;
+    if (tutStep >= TUT_SCENES.length) { endTutorial(); return; }
+    showTutLine(tutStep);
+}
+function showTutLine(idx) {
+    const d = TUT_SCENES[idx];
+    document.getElementById('tutSpeaker').innerText = d.speaker;
+    document.getElementById('tutStep').innerText = (idx+1) + ' / ' + TUT_SCENES.length;
+    document.getElementById('tutContinue').style.display = 'none';
+    tutTyperDone = false;
+    const el = document.getElementById('tutText');
+    el.innerText = '';
+    const full = d.text.replace('[NAME]', playerName || 'Explorador');
+    let i = 0;
+    if (tutTyperTimer) clearInterval(tutTyperTimer);
+    tutTyperTimer = setInterval(() => {
+        el.innerText = full.slice(0, ++i);
+        if (i >= full.length) {
+            clearInterval(tutTyperTimer); tutTyperTimer = null;
+            tutTyperDone = true;
+            document.getElementById('tutContinue').style.display = 'block';
+        }
+    }, 28);
+}
+function endTutorial() {
+    if (tutAnimFrame) cancelAnimationFrame(tutAnimFrame);
+    if (tutTyperTimer) { clearInterval(tutTyperTimer); tutTyperTimer = null; }
+    if (window._tutResizer) window.removeEventListener('resize', window._tutResizer);
+    const ov = document.getElementById('tutorialIntro');
+    if (ov._tutHandler) ov.removeEventListener('pointerdown', ov._tutHandler);
+    ov.style.transition = 'opacity 0.7s';
+    ov.style.opacity = '0';
+    setTimeout(() => {
+        ov.style.display = 'none';
+        ov.style.transition = '';
+        ov.style.opacity = '1';
+        startGame();
+    }, 700);
+}
+
+function drawTutScene(canvas, t) {
+    if (!canvas) return;
+    const c = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    if (!W || !H) return;
+    const dialogH = Math.min(160, H * 0.25);
+    const sceneH = H - dialogH;
+
+    // ---- SKY gradient ----
+    const sky = c.createLinearGradient(0, 0, 0, sceneH);
+    sky.addColorStop(0, '#060c1e');
+    sky.addColorStop(0.35, '#0d2045');
+    sky.addColorStop(0.65, '#1a4a8a');
+    sky.addColorStop(0.85, '#2e86c1');
+    sky.addColorStop(1, '#5dade2');
+    c.fillStyle = sky;
+    c.fillRect(0, 0, W, sceneH);
+
+    // ---- Stars ----
+    const starData = [
+        [0.04,0.04],[0.12,0.02],[0.22,0.07],[0.31,0.03],[0.44,0.06],
+        [0.55,0.02],[0.63,0.08],[0.72,0.04],[0.83,0.01],[0.91,0.06],
+        [0.08,0.13],[0.27,0.11],[0.48,0.14],[0.69,0.10],[0.87,0.12],
+        [0.16,0.19],[0.36,0.16],[0.60,0.18],[0.78,0.15],[0.95,0.09],
+    ];
+    starData.forEach(([sx,sy]) => {
+        const fade = Math.max(0, 1 - (sy * sceneH) / (sceneH * 0.5));
+        const blink = 0.4 + 0.5 * Math.sin(t * 1.8 + sx * 17);
+        c.globalAlpha = blink * fade * 0.9;
+        c.fillStyle = '#ffffff';
+        c.beginPath();
+        c.arc(sx*W, sy*sceneH, 1.4, 0, Math.PI*2);
+        c.fill();
+    });
+    c.globalAlpha = 1;
+
+    // ---- Sun ----
+    const sunX = W * 0.78, sunY = sceneH * 0.48;
+    const sunGlow = c.createRadialGradient(sunX, sunY, 0, sunX, sunY, 120);
+    sunGlow.addColorStop(0, 'rgba(255,220,80,0.45)');
+    sunGlow.addColorStop(0.5, 'rgba(255,140,40,0.15)');
+    sunGlow.addColorStop(1, 'rgba(255,80,20,0)');
+    c.fillStyle = sunGlow;
+    c.fillRect(0, 0, W, sceneH);
+    c.fillStyle = '#fde568';
+    c.beginPath(); c.arc(sunX, sunY, 36, 0, Math.PI*2); c.fill();
+    c.strokeStyle = '#f0932b'; c.lineWidth = 3;
+    c.beginPath(); c.arc(sunX, sunY, 36, 0, Math.PI*2); c.stroke();
+    c.strokeStyle = 'rgba(253,229,104,0.35)'; c.lineWidth = 2;
+    for (let r = 0; r < 10; r++) {
+        const ang = (r/10)*Math.PI*2 + t*0.18;
+        const r1 = 45, r2 = 60 + Math.sin(t*1.2+r)*5;
+        c.beginPath();
+        c.moveTo(sunX + Math.cos(ang)*r1, sunY + Math.sin(ang)*r1);
+        c.lineTo(sunX + Math.cos(ang)*r2, sunY + Math.sin(ang)*r2);
+        c.stroke();
+    }
+
+    // ---- Clouds ----
+    const cloudDefs = [
+        {bx:0.05, by:0.15, scale:1.1, speed:0.012},
+        {bx:0.38, by:0.10, scale:0.75, speed:0.009},
+        {bx:0.58, by:0.18, scale:0.95, speed:0.011},
+        {bx:0.80, by:0.12, scale:0.65, speed:0.007},
+    ];
+    cloudDefs.forEach(cl => {
+        const cx = ((cl.bx + t*cl.speed) % 1.15 - 0.08) * W;
+        const cy = cl.by * sceneH;
+        tutDrawCloud(c, cx, cy, cl.scale * 55, cl.scale * 28);
+    });
+
+    // ---- Horizon ----
+    const horizY = sceneH * 0.60;
+
+    // ---- Background islands drawn BEFORE ocean so water covers their bases ----
+    // y = horizY - h/2 puts the ellipse center AT the horizon → upper half visible, lower half submerged
+    tutDrawIsland(c, W*0.18, horizY-16, 80, 32, '#155d27', '#1e8449', t, 0.2);
+    tutDrawIsland(c, W*0.55, horizY-26, 148, 52, '#1a5c2e', '#27ae60', t, 0.6);
+    tutDrawIsland(c, W*0.87, horizY-19, 90, 38, '#145a32', '#1e8449', t, 0.9);
+
+    // ---- Foreground island body BEFORE ocean ----
+    const fgX = W*0.0, fgY = horizY - sceneH*0.06;
+    const fgW2 = W*0.56, fgH2 = sceneH*0.55;
+    // Base land mass (ellipse centered just below horizon so upper dome emerges from water)
+    const islandG = c.createRadialGradient(fgX+fgW2*0.38, fgY-fgH2*0.05, 0, fgX+fgW2*0.38, fgY, fgW2*0.6);
+    islandG.addColorStop(0, '#34d058');
+    islandG.addColorStop(0.4, '#1e8449');
+    islandG.addColorStop(1, '#0f4d28');
+    c.fillStyle = islandG;
+    c.beginPath();
+    c.ellipse(fgX+fgW2*0.38, fgY+fgH2*0.22, fgW2*0.52, fgH2*0.42, 0, 0, Math.PI*2);
+    c.fill();
+    // Sandy beach strip right at the waterline
+    const beachG = c.createLinearGradient(0, horizY-8, 0, horizY+18);
+    beachG.addColorStop(0, '#e8c97a');
+    beachG.addColorStop(1, '#c4a35a');
+    c.fillStyle = beachG;
+    c.beginPath();
+    c.ellipse(fgX+fgW2*0.38, horizY+4, fgW2*0.54, 18, 0, 0, Math.PI*2);
+    c.fill();
+
+    // ---- Ocean drawn AFTER islands — covers their bases naturally ----
+    const ocean = c.createLinearGradient(0, horizY, 0, sceneH);
+    ocean.addColorStop(0, '#1a6ea0');
+    ocean.addColorStop(0.5, '#145374');
+    ocean.addColorStop(1, '#0a1f33');
+    c.fillStyle = ocean;
+    c.fillRect(0, horizY, W, sceneH - horizY);
+
+    // Thin horizon line (atmospheric haze)
+    const hazeG = c.createLinearGradient(0, horizY-6, 0, horizY+10);
+    hazeG.addColorStop(0, 'rgba(133,193,233,0)');
+    hazeG.addColorStop(0.5, 'rgba(133,193,233,0.25)');
+    hazeG.addColorStop(1, 'rgba(133,193,233,0)');
+    c.fillStyle = hazeG;
+    c.fillRect(0, horizY-6, W, 16);
+
+    // Wave lines
+    c.lineWidth = 1;
+    for (let wi = 0; wi < 9; wi++) {
+        const wy = horizY + (wi+1) * (sceneH - horizY) / 10;
+        const amp = 2.5 + wi * 0.4;
+        const speed = 1.4 - wi * 0.08;
+        c.strokeStyle = 'rgba(255,255,255,' + (0.04 + wi*0.005) + ')';
+        c.beginPath();
+        for (let wx = 0; wx <= W; wx += 5) {
+            const wy2 = wy + Math.sin(wx*0.018 + t*speed) * amp;
+            wx === 0 ? c.moveTo(wx, wy2) : c.lineTo(wx, wy2);
+        }
+        c.stroke();
+    }
+
+    // Sun reflection on water
+    const refGrad = c.createLinearGradient(sunX-50, horizY, sunX+50, sceneH);
+    refGrad.addColorStop(0, 'rgba(253,229,104,0.28)');
+    refGrad.addColorStop(1, 'rgba(253,229,104,0)');
+    c.fillStyle = refGrad;
+    c.beginPath();
+    c.moveTo(sunX-28, horizY);
+    c.lineTo(sunX+28, horizY);
+    c.lineTo(sunX+90, sceneH);
+    c.lineTo(sunX-90, sceneH);
+    c.closePath(); c.fill();
+
+    // ---- Foreground island trees + label (drawn on top of ocean) ----
+    const fgTrees = [[0.06,-0.09],[0.16,-0.18],[0.28,-0.24],[0.40,-0.26],[0.53,-0.22],[0.65,-0.16],[0.75,-0.10]];
+    fgTrees.forEach(([tx,ty]) => {
+        const tX = fgX + fgW2*tx;
+        const tY = fgY + fgH2*0.22 + fgH2*ty;
+        const sway = Math.sin(t*1.3 + tx*6) * 2.5;
+        tutDrawTree(c, tX+sway, tY, 0.6 + Math.abs(ty)*1.4);
+    });
+    // Island name label
+    const labelX = fgX + fgW2*0.12, labelY = fgY + fgH2*0.0 - 14;
+    c.fillStyle = 'rgba(0,0,0,0.60)';
+    c.fillRect(labelX, labelY, 190, 28);
+    c.fillStyle = '#f1c40f';
+    c.font = 'bold 16px VT323, monospace';
+    c.textAlign = 'left';
+    c.fillText('🏝 ILHA DO HIDROGÊNIO', labelX+8, labelY+20);
+
+    // ---- Floating element tiles ----
+    const floatElems = ['H','He','O','C','N','Na','Cl','Fe','Au','Li'];
+    floatElems.forEach((sym, i) => {
+        const ex = (0.02 + i*0.1 + Math.sin(t*0.25+i*1.3)*0.025)*W;
+        const ey = (0.04 + Math.sin(t*0.45+i*1.7)*0.035)*sceneH;
+        const alpha = 0.25 + 0.18*Math.sin(t*0.8+i*2);
+        c.globalAlpha = alpha;
+        c.fillStyle = '#4a0080';
+        c.fillRect(ex-13, ey-13, 26, 26);
+        c.strokeStyle = '#9b59b6'; c.lineWidth = 1.5;
+        c.strokeRect(ex-13, ey-13, 26, 26);
+        c.fillStyle = '#e0aaff';
+        c.font = 'bold 13px VT323, monospace';
+        c.textAlign = 'center';
+        c.fillText(sym, ex, ey+5);
+        c.globalAlpha = 1;
+    });
+
+    // ---- Title (on first step) ----
+    if (tutStep === 0) {
+        const alpha = Math.min(1, t*0.8);
+        c.globalAlpha = alpha;
+        const fs = Math.max(16, Math.floor(W*0.052));
+        c.font = 'bold '+fs+'px VT323, monospace';
+        c.textAlign = 'center';
+        c.fillStyle = 'rgba(0,0,0,0.5)';
+        c.fillText('ARQUIPÉLAGO DOS ELEMENTOS', W/2+2, sceneH*0.26+2);
+        c.fillStyle = '#f1c40f';
+        c.fillText('ARQUIPÉLAGO DOS ELEMENTOS', W/2, sceneH*0.26);
+        c.globalAlpha = 1;
+    }
+
+    // ---- Dr. Atom ----
+    const drX = W * 0.73;
+    const drY = sceneH * 0.50 + Math.sin(t*1.8)*4;
+    const scl = Math.min(W, sceneH) / 520;
+    tutDrawDrAtom(c, drX, drY, scl, t);
+}
+
+function tutDrawCloud(c, x, y, w, h) {
+    c.fillStyle = 'rgba(255,255,255,0.82)';
+    c.beginPath();
+    c.arc(x,      y,       h*0.70, 0, Math.PI*2);
+    c.arc(x+w*0.30, y-h*0.30, h*0.55, 0, Math.PI*2);
+    c.arc(x+w*0.60, y,       h*0.62, 0, Math.PI*2);
+    c.arc(x+w*0.30, y+h*0.22, h*0.48, 0, Math.PI*2);
+    c.fill();
+}
+
+function tutDrawIsland(c, x, y, w, h, col1, col2, t, phase) {
+    // Island as a natural dome — drawn before ocean, lower half gets covered by water
+    // Soft shadow/reflection on water surface
+    c.fillStyle = 'rgba(0,0,40,0.22)';
+    c.beginPath();
+    c.ellipse(x, y+h*0.82, w*0.48, h*0.10, 0, 0, Math.PI*2);
+    c.fill();
+
+    // Main island dome (custom path for more natural silhouette)
+    const g = c.createLinearGradient(x, y, x, y+h);
+    g.addColorStop(0, col2);
+    g.addColorStop(0.55, col1);
+    g.addColorStop(1, '#0a2d14');
+    c.fillStyle = g;
+    c.beginPath();
+    c.moveTo(x - w*0.5, y + h*0.5);
+    c.bezierCurveTo(x - w*0.52, y + h*0.08, x - w*0.2, y - h*0.05, x, y);
+    c.bezierCurveTo(x + w*0.2, y - h*0.05, x + w*0.52, y + h*0.08, x + w*0.5, y + h*0.5);
+    c.ellipse(x, y+h*0.5, w*0.5, h*0.12, 0, Math.PI, 0, true);
+    c.closePath();
+    c.fill();
+
+    // Sandy beach at widest point (right at water level)
+    const beachG = c.createLinearGradient(x-w*0.5, y+h*0.44, x+w*0.5, y+h*0.56);
+    beachG.addColorStop(0, '#c8a85a');
+    beachG.addColorStop(0.5, '#e0c070');
+    beachG.addColorStop(1, '#c8a85a');
+    c.fillStyle = beachG;
+    c.beginPath();
+    c.ellipse(x, y+h*0.5, w*0.5, h*0.10, 0, 0, Math.PI*2);
+    c.fill();
+
+    // Highlight on upper dome
+    c.fillStyle = 'rgba(255,255,255,0.07)';
+    c.beginPath();
+    c.ellipse(x - w*0.08, y + h*0.15, w*0.22, h*0.12, -0.3, 0, Math.PI*2);
+    c.fill();
+
+    // Trees
+    for (let i = 0; i < 3; i++) {
+        const tx = x + (i-1)*w*0.28;
+        const ty = y + h*0.10;
+        tutDrawTree(c, tx + Math.sin(t+phase+i)*1.8, ty, 0.42);
+    }
+}
+
+function tutDrawTree(c, x, y, scale) {
+    const s = scale * 22;
+    c.fillStyle = '#5d3a1a';
+    c.fillRect(x-s*0.14, y, s*0.28, s*0.55);
+    const greens = ['#1e8449','#27ae60','#2ecc71'];
+    for (let tier = 0; tier < 3; tier++) {
+        c.fillStyle = greens[tier];
+        c.beginPath();
+        const ty = y - s*(0.35 + tier*0.38);
+        const tw = s*(1.15 - tier*0.22);
+        c.moveTo(x, ty - s*0.45);
+        c.lineTo(x+tw, ty+s*0.12);
+        c.lineTo(x-tw, ty+s*0.12);
+        c.closePath(); c.fill();
+    }
+}
+
+function tutDrawDrAtom(c, x, y, scale, t) {
+    const s = scale * 70;
+    c.save();
+
+    // ---- Ground shadow ----
+    const shadowG = c.createRadialGradient(x, y+s*2.32, 0, x, y+s*2.32, s*0.9);
+    shadowG.addColorStop(0, 'rgba(0,0,0,0.30)');
+    shadowG.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = shadowG;
+    c.beginPath(); c.ellipse(x, y+s*2.32, s*0.88, s*0.20, 0, 0, Math.PI*2); c.fill();
+
+    // ---- TROUSERS (dark navy) ----
+    const trousersG = c.createLinearGradient(x-s*0.4, y+s*2.0, x+s*0.4, y+s*2.7);
+    trousersG.addColorStop(0, '#2c3e50'); trousersG.addColorStop(1, '#1a252f');
+    c.fillStyle = trousersG;
+    // Left leg with slight rounded bottom
+    c.beginPath();
+    c.moveTo(x-s*0.42, y+s*2.02);
+    c.lineTo(x-s*0.42, y+s*2.60);
+    c.quadraticCurveTo(x-s*0.42, y+s*2.68, x-s*0.34, y+s*2.68);
+    c.lineTo(x-s*0.08, y+s*2.68);
+    c.quadraticCurveTo(x-s*0.02, y+s*2.68, x-s*0.02, y+s*2.60);
+    c.lineTo(x-s*0.02, y+s*2.02);
+    c.closePath(); c.fill();
+    // Right leg
+    c.beginPath();
+    c.moveTo(x+s*0.02, y+s*2.02);
+    c.lineTo(x+s*0.02, y+s*2.60);
+    c.quadraticCurveTo(x+s*0.02, y+s*2.68, x+s*0.10, y+s*2.68);
+    c.lineTo(x+s*0.42, y+s*2.68);
+    c.quadraticCurveTo(x+s*0.44, y+s*2.68, x+s*0.44, y+s*2.60);
+    c.lineTo(x+s*0.44, y+s*2.02);
+    c.closePath(); c.fill();
+    // Trouser crease highlight
+    c.strokeStyle = 'rgba(255,255,255,0.07)'; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(x-s*0.25, y+s*2.05); c.lineTo(x-s*0.25, y+s*2.62); c.stroke();
+    c.beginPath(); c.moveTo(x+s*0.22, y+s*2.05); c.lineTo(x+s*0.22, y+s*2.62); c.stroke();
+
+    // ---- SHOES ----
+    const shoeG = c.createLinearGradient(x-s*0.5, y+s*2.65, x+s*0.5, y+s*2.80);
+    shoeG.addColorStop(0, '#1c2833'); shoeG.addColorStop(0.5, '#2c3e50'); shoeG.addColorStop(1, '#1c2833');
+    c.fillStyle = shoeG;
+    // Left shoe
+    c.beginPath();
+    c.ellipse(x-s*0.25, y+s*2.72, s*0.30, s*0.10, -0.12, 0, Math.PI*2);
+    c.fill();
+    // Right shoe
+    c.beginPath();
+    c.ellipse(x+s*0.25, y+s*2.72, s*0.30, s*0.10, 0.12, 0, Math.PI*2);
+    c.fill();
+    // Shoe shine
+    c.fillStyle = 'rgba(255,255,255,0.12)';
+    c.beginPath(); c.ellipse(x-s*0.28, y+s*2.68, s*0.10, s*0.04, -0.2, 0, Math.PI*2); c.fill();
+    c.beginPath(); c.ellipse(x+s*0.22, y+s*2.68, s*0.10, s*0.04, 0.2, 0, Math.PI*2); c.fill();
+
+    // ---- LEFT ARM (swinging gently) ----
+    const armSwing = Math.sin(t * 1.8) * 0.22;
+    const laEndX = x - s*0.62 - s*0.28;
+    const laEndY = y + s*0.85 + s*0.60 + armSwing * s*0.30;
+    c.strokeStyle = '#dde4e8'; c.lineWidth = s*0.20; c.lineCap = 'round';
+    c.beginPath();
+    c.moveTo(x-s*0.55, y+s*0.80);
+    c.quadraticCurveTo(x-s*0.72, y+s*1.1, laEndX, laEndY);
+    c.stroke();
+    // Left hand
+    const handG1 = c.createRadialGradient(laEndX, laEndY, 0, laEndX, laEndY, s*0.13);
+    handG1.addColorStop(0, '#f5e6cc'); handG1.addColorStop(1, '#e8c99a');
+    c.fillStyle = handG1;
+    c.beginPath(); c.arc(laEndX, laEndY, s*0.11, 0, Math.PI*2); c.fill();
+
+    // ---- RIGHT ARM (raised, holding flask) ----
+    const raEndX = x + s*0.60 + s*0.22;
+    const raEndY = y + s*0.32 + Math.sin(t*1.4)*s*0.07;
+    c.strokeStyle = '#dde4e8'; c.lineWidth = s*0.20; c.lineCap = 'round';
+    c.beginPath();
+    c.moveTo(x+s*0.55, y+s*0.80);
+    c.quadraticCurveTo(x+s*0.72, y+s*0.55, raEndX, raEndY);
+    c.stroke();
+    // Right hand
+    const handG2 = c.createRadialGradient(raEndX, raEndY, 0, raEndX, raEndY, s*0.13);
+    handG2.addColorStop(0, '#f5e6cc'); handG2.addColorStop(1, '#e8c99a');
+    c.fillStyle = handG2;
+    c.beginPath(); c.arc(raEndX, raEndY, s*0.11, 0, Math.PI*2); c.fill();
+
+    // ---- FLASK (Erlenmeyer shape) ----
+    const fX = raEndX + s*0.02, fY = raEndY - s*0.32;
+    c.save();
+    c.translate(fX, fY);
+    // Glow behind flask
+    c.globalAlpha = 0.25 + 0.15*Math.sin(t*2);
+    const fGlow = c.createRadialGradient(0, 0, 0, 0, 0, s*0.45);
+    fGlow.addColorStop(0, 'rgba(180,100,255,0.7)'); fGlow.addColorStop(1, 'rgba(120,0,200,0)');
+    c.fillStyle = fGlow; c.fillRect(-s*0.45, -s*0.45, s*0.9, s*0.9);
+    c.globalAlpha = 1;
+    // Flask body (Erlenmeyer)
+    c.beginPath();
+    c.moveTo(-s*0.08, -s*0.32);
+    c.lineTo(-s*0.08, -s*0.10);
+    c.bezierCurveTo(-s*0.22, s*0.02, -s*0.28, s*0.10, -s*0.26, s*0.26);
+    c.quadraticCurveTo(-s*0.24, s*0.34, 0, s*0.36);
+    c.quadraticCurveTo(s*0.24, s*0.34, s*0.26, s*0.26);
+    c.bezierCurveTo(s*0.28, s*0.10, s*0.22, s*0.02, s*0.08, -s*0.10);
+    c.lineTo(s*0.08, -s*0.32);
+    c.closePath();
+    const flaskG = c.createLinearGradient(-s*0.28, -s*0.32, s*0.28, s*0.36);
+    flaskG.addColorStop(0, 'rgba(200,150,255,0.92)');
+    flaskG.addColorStop(0.5, 'rgba(140,80,220,0.88)');
+    flaskG.addColorStop(1, 'rgba(80,0,160,0.90)');
+    c.fillStyle = flaskG;
+    c.fill();
+    c.strokeStyle = 'rgba(160,80,255,0.9)'; c.lineWidth = 1.5;
+    c.stroke();
+    // Flask neck ring
+    c.fillStyle = 'rgba(220,200,255,0.5)';
+    c.fillRect(-s*0.10, -s*0.36, s*0.20, s*0.08);
+    // Liquid inside
+    c.beginPath();
+    c.moveTo(-s*0.24, s*0.20);
+    c.bezierCurveTo(-s*0.25, s*0.28, -s*0.22, s*0.33, 0, s*0.34);
+    c.bezierCurveTo(s*0.22, s*0.33, s*0.25, s*0.28, s*0.24, s*0.20);
+    c.closePath();
+    c.fillStyle = 'rgba(60,200,120,0.55)';
+    c.fill();
+    // Flask bubble
+    const bp = (t*1.6) % 1;
+    c.fillStyle = 'rgba(255,255,255,0.70)';
+    c.beginPath(); c.arc(s*0.04, s*0.22 - bp*s*0.30, s*0.045, 0, Math.PI*2); c.fill();
+    // Flask highlight
+    c.fillStyle = 'rgba(255,255,255,0.28)';
+    c.beginPath();
+    c.ellipse(-s*0.10, s*0.05, s*0.06, s*0.12, -0.5, 0, Math.PI*2);
+    c.fill();
+    c.restore();
+
+    // ---- LAB COAT body ----
+    // Back-layer coat sides (for thickness)
+    c.fillStyle = '#c8d6d8';
+    c.beginPath();
+    c.moveTo(x-s*0.58, y+s*0.58); c.lineTo(x-s*0.65, y+s*2.06);
+    c.lineTo(x-s*0.50, y+s*2.06); c.lineTo(x-s*0.48, y+s*0.58);
+    c.closePath(); c.fill();
+    c.beginPath();
+    c.moveTo(x+s*0.58, y+s*0.58); c.lineTo(x+s*0.65, y+s*2.06);
+    c.lineTo(x+s*0.50, y+s*2.06); c.lineTo(x+s*0.48, y+s*0.58);
+    c.closePath(); c.fill();
+
+    // Main coat front
+    c.beginPath();
+    c.moveTo(x-s*0.56, y+s*0.58);
+    c.bezierCurveTo(x-s*0.58, y+s*1.20, x-s*0.56, y+s*1.70, x-s*0.52, y+s*2.06);
+    c.lineTo(x+s*0.52, y+s*2.06);
+    c.bezierCurveTo(x+s*0.56, y+s*1.70, x+s*0.58, y+s*1.20, x+s*0.56, y+s*0.58);
+    c.closePath();
+    const coatG = c.createLinearGradient(x-s*0.58, y+s*0.58, x+s*0.58, y+s*2.06);
+    coatG.addColorStop(0, '#f4f8f9');
+    coatG.addColorStop(0.35, '#eaf0f1');
+    coatG.addColorStop(0.7, '#dde8ea');
+    coatG.addColorStop(1, '#ccd8db');
+    c.fillStyle = coatG;
+    c.fill();
+    // Coat edge stitch
+    c.strokeStyle = '#b2c2c5'; c.lineWidth = 1.5;
+    c.beginPath();
+    c.moveTo(x-s*0.56, y+s*0.58);
+    c.bezierCurveTo(x-s*0.58, y+s*1.20, x-s*0.56, y+s*1.70, x-s*0.52, y+s*2.06);
+    c.stroke();
+    c.beginPath();
+    c.moveTo(x+s*0.56, y+s*0.58);
+    c.bezierCurveTo(x+s*0.58, y+s*1.20, x+s*0.56, y+s*1.70, x+s*0.52, y+s*2.06);
+    c.stroke();
+
+    // Coat lapels (V-neck, navy)
+    c.fillStyle = '#2563a8';
+    c.beginPath();
+    c.moveTo(x-s*0.18, y+s*0.58);
+    c.quadraticCurveTo(x-s*0.10, y+s*0.78, x, y+s*0.95);
+    c.lineTo(x-s*0.54, y+s*0.58);
+    c.closePath(); c.fill();
+    c.fillStyle = '#2563a8';
+    c.beginPath();
+    c.moveTo(x+s*0.18, y+s*0.58);
+    c.quadraticCurveTo(x+s*0.10, y+s*0.78, x, y+s*0.95);
+    c.lineTo(x+s*0.54, y+s*0.58);
+    c.closePath(); c.fill();
+    // Lapel highlight
+    c.fillStyle = 'rgba(100,160,255,0.2)';
+    c.beginPath();
+    c.moveTo(x-s*0.14, y+s*0.60);
+    c.quadraticCurveTo(x-s*0.08, y+s*0.75, x-s*0.02, y+s*0.88);
+    c.lineTo(x-s*0.48, y+s*0.60);
+    c.closePath(); c.fill();
+
+    // Shirt/tie visible under lapels
+    c.fillStyle = '#f0f4f5';
+    c.beginPath();
+    c.moveTo(x-s*0.14, y+s*0.60);
+    c.lineTo(x, y+s*0.95);
+    c.lineTo(x+s*0.14, y+s*0.60);
+    c.closePath(); c.fill();
+    // Tie
+    c.fillStyle = '#e74c3c';
+    c.beginPath();
+    c.moveTo(x-s*0.04, y+s*0.68);
+    c.lineTo(x+s*0.04, y+s*0.68);
+    c.lineTo(x+s*0.06, y+s*1.10);
+    c.lineTo(x, y+s*1.16);
+    c.lineTo(x-s*0.06, y+s*1.10);
+    c.closePath(); c.fill();
+    c.fillStyle = 'rgba(255,255,255,0.15)';
+    c.beginPath();
+    c.moveTo(x, y+s*0.70);
+    c.lineTo(x+s*0.02, y+s*0.70);
+    c.lineTo(x+s*0.035, y+s*1.0);
+    c.lineTo(x, y+s*1.04);
+    c.closePath(); c.fill();
+
+    // Coat pocket
+    c.strokeStyle = '#b2c2c5'; c.lineWidth = 1.2;
+    c.beginPath();
+    c.rect(x+s*0.22, y+s*1.28, s*0.22, s*0.18);
+    c.stroke();
+    // Pen in pocket
+    c.strokeStyle = '#e74c3c'; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(x+s*0.30, y+s*1.28); c.lineTo(x+s*0.30, y+s*1.18); c.stroke();
+    c.strokeStyle = '#f1c40f'; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(x+s*0.34, y+s*1.28); c.lineTo(x+s*0.34, y+s*1.20); c.stroke();
+
+    // Atom badge spinning on chest
+    c.save();
+    c.translate(x-s*0.30, y+s*1.48);
+    c.fillStyle = 'rgba(255,255,255,0.15)';
+    c.beginPath(); c.arc(0, 0, s*0.17, 0, Math.PI*2); c.fill();
+    for (let orb = 0; orb < 3; orb++) {
+        c.save();
+        c.rotate((orb/3)*Math.PI + t*0.65);
+        c.strokeStyle = 'rgba(180,100,255,' + (0.55+0.25*Math.sin(t*1.2+orb)) + ')';
+        c.lineWidth = 1.2;
+        c.beginPath(); c.ellipse(0, 0, s*0.16, s*0.07, 0, 0, Math.PI*2); c.stroke();
+        c.restore();
+    }
+    c.fillStyle = '#f39c12';
+    c.beginPath(); c.arc(0, 0, s*0.04, 0, Math.PI*2); c.fill();
+    c.restore();
+
+    // ---- NECK ----
+    const neckG = c.createLinearGradient(x-s*0.18, y+s*0.20, x+s*0.18, y+s*0.58);
+    neckG.addColorStop(0, '#f5e6cc'); neckG.addColorStop(1, '#e2c99e');
+    c.fillStyle = neckG;
+    c.beginPath();
+    c.moveTo(x-s*0.16, y+s*0.22);
+    c.bezierCurveTo(x-s*0.18, y+s*0.38, x-s*0.18, y+s*0.52, x-s*0.16, y+s*0.60);
+    c.lineTo(x+s*0.16, y+s*0.60);
+    c.bezierCurveTo(x+s*0.18, y+s*0.52, x+s*0.18, y+s*0.38, x+s*0.16, y+s*0.22);
+    c.closePath(); c.fill();
+
+    // ---- HEAD ----
+    // Head shape (slightly oval, wider at cheeks)
+    const headG = c.createRadialGradient(x-s*0.12, y-s*0.20, s*0.05, x, y, s*0.64);
+    headG.addColorStop(0, '#fbeedd');
+    headG.addColorStop(0.5, '#f5ddb5');
+    headG.addColorStop(1, '#d4a564');
+    c.fillStyle = headG;
+    c.beginPath();
+    c.moveTo(x, y-s*0.60);
+    c.bezierCurveTo(x+s*0.45, y-s*0.60, x+s*0.62, y-s*0.25, x+s*0.62, y+s*0.05);
+    c.bezierCurveTo(x+s*0.62, y+s*0.35, x+s*0.40, y+s*0.55, x, y+s*0.58);
+    c.bezierCurveTo(x-s*0.40, y+s*0.55, x-s*0.62, y+s*0.35, x-s*0.62, y+s*0.05);
+    c.bezierCurveTo(x-s*0.62, y-s*0.25, x-s*0.45, y-s*0.60, x, y-s*0.60);
+    c.closePath(); c.fill();
+
+    // Jaw shadow / chin shading
+    c.fillStyle = 'rgba(150,90,30,0.10)';
+    c.beginPath();
+    c.ellipse(x, y+s*0.42, s*0.40, s*0.14, 0, 0, Math.PI*2);
+    c.fill();
+
+    // Ear left
+    const earG = c.createRadialGradient(x-s*0.62, y+s*0.05, 0, x-s*0.62, y+s*0.05, s*0.16);
+    earG.addColorStop(0, '#f5ddb5'); earG.addColorStop(1, '#c8905a');
+    c.fillStyle = earG;
+    c.beginPath(); c.ellipse(x-s*0.63, y+s*0.04, s*0.10, s*0.16, -0.15, 0, Math.PI*2); c.fill();
+    c.fillStyle = 'rgba(180,100,50,0.18)';
+    c.beginPath(); c.ellipse(x-s*0.63, y+s*0.04, s*0.06, s*0.10, -0.15, 0, Math.PI*2); c.fill();
+    // Ear right
+    c.fillStyle = earG;
+    c.beginPath(); c.ellipse(x+s*0.63, y+s*0.04, s*0.10, s*0.16, 0.15, 0, Math.PI*2); c.fill();
+    c.fillStyle = 'rgba(180,100,50,0.18)';
+    c.beginPath(); c.ellipse(x+s*0.63, y+s*0.04, s*0.06, s*0.10, 0.15, 0, Math.PI*2); c.fill();
+
+    // ---- HAIR (flowing wild white) ----
+    // Hair base volume behind head
+    const hairBg = c.createRadialGradient(x, y-s*0.45, 0, x, y-s*0.45, s*0.70);
+    hairBg.addColorStop(0, '#f0f2f4');
+    hairBg.addColorStop(0.6, '#d8dde0');
+    hairBg.addColorStop(1, '#b0b8bc');
+    c.fillStyle = hairBg;
+    c.beginPath();
+    c.moveTo(x-s*0.60, y+s*0.0);
+    c.bezierCurveTo(x-s*0.70, y-s*0.40, x-s*0.55, y-s*0.90, x, y-s*0.90);
+    c.bezierCurveTo(x+s*0.55, y-s*0.90, x+s*0.70, y-s*0.40, x+s*0.60, y+s*0.0);
+    c.closePath(); c.fill();
+
+    // Wild flyaway tuft top
+    c.fillStyle = '#e8ecee';
+    c.beginPath();
+    c.moveTo(x-s*0.20, y-s*0.78);
+    c.bezierCurveTo(x-s*0.30, y-s*1.08, x-s*0.05, y-s*1.18, x+s*0.02, y-s*1.12);
+    c.bezierCurveTo(x+s*0.12, y-s*1.20, x+s*0.32, y-s*1.10, x+s*0.25, y-s*0.82);
+    c.quadraticCurveTo(x+s*0.10, y-s*0.70, x-s*0.20, y-s*0.78);
+    c.closePath(); c.fill();
+
+    // Left side tuft
+    c.fillStyle = '#dde2e5';
+    c.beginPath();
+    c.moveTo(x-s*0.58, y-s*0.10);
+    c.bezierCurveTo(x-s*0.85, y-s*0.20, x-s*0.88, y-s*0.55, x-s*0.68, y-s*0.55);
+    c.bezierCurveTo(x-s*0.55, y-s*0.55, x-s*0.60, y-s*0.20, x-s*0.58, y-s*0.10);
+    c.closePath(); c.fill();
+    // Right side tuft
+    c.beginPath();
+    c.moveTo(x+s*0.58, y-s*0.10);
+    c.bezierCurveTo(x+s*0.85, y-s*0.20, x+s*0.88, y-s*0.55, x+s*0.68, y-s*0.55);
+    c.bezierCurveTo(x+s*0.55, y-s*0.55, x+s*0.60, y-s*0.20, x+s*0.58, y-s*0.10);
+    c.closePath(); c.fill();
+
+    // Individual animated hair strands
+    const strandColors = ['rgba(200,210,215,0.9)','rgba(220,228,232,0.85)','rgba(185,195,200,0.8)'];
+    for (let h = 0; h < 7; h++) {
+        const hProgress = h / 6;
+        const hx = x + (h-3)*s*0.16;
+        const windOff = Math.sin(t*0.85 + h*0.9) * s*0.10;
+        c.strokeStyle = strandColors[h%3];
+        c.lineWidth = 1.5 + (h%2)*0.5;
+        c.lineCap = 'round';
+        c.beginPath();
+        c.moveTo(hx, y-s*0.78);
+        c.bezierCurveTo(
+            hx + windOff*0.5, y-s*0.95,
+            hx + windOff, y-s*1.08,
+            hx + windOff*1.3, y-s*(1.05+Math.sin(t*0.6+h)*0.08)
+        );
+        c.stroke();
+    }
+
+    // ---- EYEBROWS (expressive, slightly raised) ----
+    c.strokeStyle = '#8a7060'; c.lineWidth = s*0.06; c.lineCap = 'round';
+    c.beginPath();
+    c.moveTo(x-s*0.44, y-s*0.26);
+    c.quadraticCurveTo(x-s*0.26, y-s*0.37, x-s*0.08, y-s*0.26);
+    c.stroke();
+    c.beginPath();
+    c.moveTo(x+s*0.08, y-s*0.26);
+    c.quadraticCurveTo(x+s*0.26, y-s*0.37, x+s*0.44, y-s*0.26);
+    c.stroke();
+
+    // ---- GLASSES ----
+    // Glass tint
+    c.fillStyle = 'rgba(180,220,245,0.28)';
+    c.beginPath(); c.arc(x-s*0.24, y-s*0.06, s*0.22, 0, Math.PI*2); c.fill();
+    c.beginPath(); c.arc(x+s*0.24, y-s*0.06, s*0.22, 0, Math.PI*2); c.fill();
+    // Glass reflection
+    c.fillStyle = 'rgba(255,255,255,0.22)';
+    c.beginPath(); c.arc(x-s*0.29, y-s*0.12, s*0.08, 0, Math.PI*2); c.fill();
+    c.beginPath(); c.arc(x+s*0.19, y-s*0.12, s*0.08, 0, Math.PI*2); c.fill();
+    // Frames
+    c.strokeStyle = '#2c3e50'; c.lineWidth = s*0.055;
+    c.beginPath(); c.arc(x-s*0.24, y-s*0.06, s*0.22, 0, Math.PI*2); c.stroke();
+    c.beginPath(); c.arc(x+s*0.24, y-s*0.06, s*0.22, 0, Math.PI*2); c.stroke();
+    // Nose bridge
+    c.beginPath(); c.moveTo(x-s*0.02, y-s*0.06); c.lineTo(x+s*0.02, y-s*0.06); c.stroke();
+    // Temple arms
+    c.beginPath(); c.moveTo(x-s*0.46, y-s*0.06); c.bezierCurveTo(x-s*0.54, y-s*0.05, x-s*0.62, y+s*0.00, x-s*0.62, y+s*0.04); c.stroke();
+    c.beginPath(); c.moveTo(x+s*0.46, y-s*0.06); c.bezierCurveTo(x+s*0.54, y-s*0.05, x+s*0.62, y+s*0.00, x+s*0.62, y+s*0.04); c.stroke();
+
+    // ---- EYES ----
+    // Whites
+    c.fillStyle = '#fff';
+    c.beginPath(); c.ellipse(x-s*0.24, y-s*0.07, s*0.14, s*0.10, 0, 0, Math.PI*2); c.fill();
+    c.beginPath(); c.ellipse(x+s*0.24, y-s*0.07, s*0.14, s*0.10, 0, 0, Math.PI*2); c.fill();
+    // Irises (warm brown)
+    const irisG = c.createRadialGradient(x-s*0.24, y-s*0.07, 0, x-s*0.24, y-s*0.07, s*0.09);
+    irisG.addColorStop(0, '#3a7bd5'); irisG.addColorStop(1, '#1a4d9e');
+    c.fillStyle = irisG;
+    c.beginPath(); c.arc(x-s*0.24, y-s*0.07, s*0.08, 0, Math.PI*2); c.fill();
+    const irisG2 = c.createRadialGradient(x+s*0.24, y-s*0.07, 0, x+s*0.24, y-s*0.07, s*0.09);
+    irisG2.addColorStop(0, '#3a7bd5'); irisG2.addColorStop(1, '#1a4d9e');
+    c.fillStyle = irisG2;
+    c.beginPath(); c.arc(x+s*0.24, y-s*0.07, s*0.08, 0, Math.PI*2); c.fill();
+    // Pupils
+    c.fillStyle = '#0d0d0d';
+    c.beginPath(); c.arc(x-s*0.24, y-s*0.07, s*0.048, 0, Math.PI*2); c.fill();
+    c.beginPath(); c.arc(x+s*0.24, y-s*0.07, s*0.048, 0, Math.PI*2); c.fill();
+    // Eye highlights
+    c.fillStyle = 'rgba(255,255,255,0.80)';
+    c.beginPath(); c.arc(x-s*0.20, y-s*0.12, s*0.028, 0, Math.PI*2); c.fill();
+    c.beginPath(); c.arc(x+s*0.28, y-s*0.12, s*0.028, 0, Math.PI*2); c.fill();
+
+    // ---- NOSE ----
+    c.strokeStyle = 'rgba(170,110,60,0.45)'; c.lineWidth = s*0.04; c.lineCap = 'round';
+    c.beginPath();
+    c.moveTo(x-s*0.06, y+s*0.02);
+    c.quadraticCurveTo(x-s*0.10, y+s*0.18, x, y+s*0.20);
+    c.quadraticCurveTo(x+s*0.10, y+s*0.18, x+s*0.06, y+s*0.02);
+    c.stroke();
+    // Nose tip shading
+    c.fillStyle = 'rgba(180,110,60,0.18)';
+    c.beginPath(); c.ellipse(x, y+s*0.18, s*0.10, s*0.06, 0, 0, Math.PI*2); c.fill();
+
+    // ---- SMILE ----
+    c.strokeStyle = '#b05030'; c.lineWidth = s*0.04; c.lineCap = 'round';
+    c.beginPath();
+    c.moveTo(x-s*0.22, y+s*0.32);
+    c.bezierCurveTo(x-s*0.14, y+s*0.42, x+s*0.14, y+s*0.42, x+s*0.22, y+s*0.32);
+    c.stroke();
+    // Cheek blush
+    c.globalAlpha = 0.20;
+    c.fillStyle = '#e8806a';
+    c.beginPath(); c.ellipse(x-s*0.40, y+s*0.22, s*0.14, s*0.08, -0.2, 0, Math.PI*2); c.fill();
+    c.beginPath(); c.ellipse(x+s*0.40, y+s*0.22, s*0.14, s*0.08, 0.2, 0, Math.PI*2); c.fill();
+    c.globalAlpha = 1;
+
+    // ---- NAME PLATE ----
+    c.fillStyle = 'rgba(255,255,255,0.92)';
+    c.beginPath();
+    c.moveTo(x-s*0.50+s*0.06, y+s*1.30);
+    c.lineTo(x+s*0.50-s*0.06, y+s*1.30);
+    c.quadraticCurveTo(x+s*0.50, y+s*1.30, x+s*0.50, y+s*1.30+s*0.06);
+    c.lineTo(x+s*0.50, y+s*1.30+s*0.32-s*0.06);
+    c.quadraticCurveTo(x+s*0.50, y+s*1.30+s*0.32, x+s*0.50-s*0.06, y+s*1.30+s*0.32);
+    c.lineTo(x-s*0.50+s*0.06, y+s*1.30+s*0.32);
+    c.quadraticCurveTo(x-s*0.50, y+s*1.30+s*0.32, x-s*0.50, y+s*1.30+s*0.32-s*0.06);
+    c.lineTo(x-s*0.50, y+s*1.30+s*0.06);
+    c.quadraticCurveTo(x-s*0.50, y+s*1.30, x-s*0.50+s*0.06, y+s*1.30);
+    c.fill();
+    c.strokeStyle = '#2563a8'; c.lineWidth = 1.5;
+    c.stroke();
+    c.fillStyle = '#1a3a6e';
+    c.font = 'bold ' + Math.floor(s*0.17) + 'px VT323, monospace';
+    c.textAlign = 'center';
+    c.fillText('DR. ÁTOMO', x, y+s*1.30+s*0.23);
+
+    // ---- Speech dots while talking ----
+    if (!tutTyperDone) {
+        for (let d = 0; d < 3; d++) {
+            const pulse = 0.4 + 0.6*Math.sin(t*4.5 + d*1.1);
+            c.globalAlpha = pulse;
+            const dotG = c.createRadialGradient(x+(d-1)*s*0.22, y-s*0.98, 0, x+(d-1)*s*0.22, y-s*0.98, s*0.09);
+            dotG.addColorStop(0, '#c084fc'); dotG.addColorStop(1, 'rgba(168,85,247,0)');
+            c.fillStyle = dotG;
+            c.beginPath(); c.arc(x+(d-1)*s*0.22, y-s*0.98, s*0.08, 0, Math.PI*2); c.fill();
+            c.fillStyle = '#a855f7';
+            c.beginPath(); c.arc(x+(d-1)*s*0.22, y-s*0.98, s*0.055, 0, Math.PI*2); c.fill();
+        }
+        c.globalAlpha = 1;
+    }
+
+    c.restore();
+}
+
+function startGame() {
+    if(gameStarted) return;
+    gameStarted = true;
+
+    document.getElementById('playerNameDisplay').innerText = playerName.toUpperCase();
+    initWorld();
+    resize();
+    window.addEventListener('resize', resize);
+
+    islands.forEach(isl => {
+        if(player.x/TILE_SIZE>=isl.x && player.x/TILE_SIZE<=isl.x+isl.w && player.y/TILE_SIZE>=isl.y && player.y/TILE_SIZE<=isl.y+isl.h) {
+            currentIslandName=isl.name;
+            document.getElementById('currentIsland').innerText="📍 "+currentIslandName.toUpperCase();
+        }
+    });
+    updateUI();
+    hideAllScreens();
+
+    // Auto-save every 60 seconds
+    setInterval(autoSave, 60000);
+
+    if(gameLoopRunning) return;
+    gameLoopRunning = true;
+    lastTime = performance.now();
+
+    function loop(time) {
+        const dt = Math.min(time - lastTime, 100);
+        lastTime = time;
+        update(dt);
+        draw();
+        requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+}
+
+// ===================== FLOATING ELEMENTS ON START =====================
+(function() {
+    const symbols = ['H','He','Li','Be','B','C','N','O','F','Ne','Na','Mg','Al','Si','P','S','Cl','Ar'];
+    const startCont = document.getElementById('startContainer');
+    if(startCont) {
+        for(let i=0; i<25; i++) {
+            const el = document.createElement('div');
+            el.className = 'bg-element';
+            el.innerText = symbols[Math.floor(Math.random()*symbols.length)];
+            el.style.left = Math.random()*95+'%';
+            el.style.animationDelay = (Math.random()*15)+'s';
+            el.style.animationDuration = (12+Math.random()*12)+'s';
+            el.style.fontSize = (15+Math.random()*20)+'px';
+            el.style.opacity = (0.1+Math.random()*0.4);
+            startCont.appendChild(el);
+        }
+    }
+})();
+
+// ===================== ALCHEMY LAB =====================
+const RECIPES = [
+    // WATER
+    { ing:['H','O'], name:'Água', formula:'H₂O', emoji:'💧', desc:'A molécula da vida! Dois hidrogênios e um oxigênio formam a substância mais essencial do universo.', effect:'water' },
+    // GASES
+    { ing:['C','O'], name:'Dióxido de Carbono', formula:'CO₂', emoji:'💨', desc:'O gás que plantas absorvem na fotossíntese. Em excesso causa o efeito estufa!', effect:'gas' },
+    { ing:['H','N'], name:'Amônia', formula:'NH₃', emoji:'💨', desc:'Gás de cheiro forte usado em fertilizantes. Fundamental para a agricultura moderna!', effect:'gas' },
+    { ing:['N','O'], name:'Óxido Nítrico', formula:'NO', emoji:'💨', desc:'Gás que reage com o oxigênio formando chuva ácida. Mas também dilata vasos sanguíneos!', effect:'gas' },
+    { ing:['He','Ne','Ar'], name:'Mistura de Gases Nobres', formula:'He+Ne+Ar', emoji:'🌈', desc:'Uma aurora boreal em um tubo! Cada gás emite sua própria cor de luz. Espetacular!', effect:'gas' },
+    { ing:['H','H'], name:'Gás Hidrogênio', formula:'H₂', emoji:'💥', desc:'CUIDADO! Hidrogênio molecular é altamente inflamável. O Hindenburg explodiu com ele!', effect:'explosion' },
+    // FIRE
+    { ing:['C','H'], name:'Metano', formula:'CH₄', emoji:'🔥', desc:'O gás natural que usamos para cozinhar. Hidrocarboneto mais simples e muito inflamável!', effect:'fire' },
+    { ing:['Li','O'], name:'Fogo de Lítio', formula:'Li₂O', emoji:'🔥', desc:'O Lítio queima com uma chama carmesim deslumbrante! Usado em fogos de artifício vermelhos.', effect:'fire' },
+    { ing:['Mg','O'], name:'Magnésio Ardente', formula:'MgO', emoji:'🔥', desc:'FLASH BRANCO INTENSO! O Magnésio queima tão forte que era usado nos flashes de câmeras antigas!', effect:'fire' },
+    { ing:['P','O'], name:'Explosão de Fósforo', formula:'P₄O₁₀', emoji:'💥', desc:'PERIGO! Fósforo branco se inflama espontaneamente no ar! Muito usado em granadas de fumaça.', effect:'explosion' },
+    // ACIDS
+    { ing:['H','Cl'], name:'Ácido Clorídrico', formula:'HCl', emoji:'⚗️', desc:'Ácido que dissolve metais e está no seu estômago! Em altas concentrações é extremamente corrosivo.', effect:'acid' },
+    { ing:['H','S'], name:'Gás Sulfídrico', formula:'H₂S', emoji:'⚗️', desc:'O infame cheiro de ovo podre! Extremamente tóxico em altas concentrações. Gas venenoso.', effect:'acid' },
+    { ing:['H','N','O'], name:'Ácido Nítrico', formula:'HNO₃', emoji:'⚗️', desc:'Ácido usado para fazer explosivos, fertilizantes e corroer metais. Muito perigoso!', effect:'acid' },
+    { ing:['H','O','S'], name:'Ácido Sulfúrico', formula:'H₂SO₄', emoji:'⚗️', desc:'O rei dos ácidos! Um dos compostos mais produzidos industrialmente. Altamente corrosivo!', effect:'acid' },
+    { ing:['H','Na','O'], name:'Soda Cáustica', formula:'NaOH', emoji:'⚗️', desc:'Base forte usada em sabão e desentupidores! Dissolve gordura e cabelo. Cuidado com a pele!', effect:'acid' },
+    // NEUTRAL / MINERALS
+    { ing:['Na','Cl'], name:'Sal de Cozinha', formula:'NaCl', emoji:'🧂', desc:'O mineral mais usado na culinária! Dois elementos perigosos (sódio e cloro) formam algo essencial!', effect:'neutral' },
+    { ing:['Ca','O'], name:'Cal Viva', formula:'CaO', emoji:'🪨', desc:'Usada na construção civil e na agricultura para corrigir solos ácidos. Reage violentamente com água!', effect:'neutral' },
+    { ing:['Al','O'], name:'Alumina', formula:'Al₂O₃', emoji:'🪨', desc:'O mineral mais duro depois do diamante! Em sua forma pura é rubi ou safira. Usado em louças!', effect:'neutral' },
+    { ing:['Si','O'], name:'Dióxido de Silício (Vidro)', formula:'SiO₂', emoji:'🔮', desc:'A areia do mar! Aquecida e derretida vira vidro. Também forma o quartzo e ágata.', effect:'neutral' },
+    { ing:['Cu','O'], name:'Pátina de Cobre', formula:'Cu₂O', emoji:'🟢', desc:'Por isso a Estátua da Liberdade é verde! O cobre oxidado forma essa camada protetora esverdeada.', effect:'neutral' },
+    { ing:['Zn','O'], name:'Óxido de Zinco', formula:'ZnO', emoji:'🤍', desc:'O protetor solar branco! Usado em pomadas para dermatite e nos pastes dos praticantes de surf!', effect:'neutral' },
+    // METALS / ALLOYS
+    { ing:['Cu','Zn'], name:'Latão', formula:'Cu+Zn', emoji:'🥉', desc:'Liga dourada usada em instrumentos musicais de sopro! Trompete, trombone... tudo é latão!', effect:'metal' },
+    { ing:['Al','Cu'], name:'Bronze de Alumínio', formula:'Al+Cu', emoji:'🏆', desc:'Liga resistente à corrosão usada em engrenagens, pinos e equipamentos navais. Forte como o aço!', effect:'metal' },
+    { ing:['Fe','C'], name:'Aço', formula:'Fe+C', emoji:'⚔️', desc:'A liga que construiu a civilização moderna! Arranha-céus, pontes, carros... tudo depende do aço!', effect:'metal' },
+    { ing:['C','Cr','Fe'], name:'Aço Inoxidável', formula:'Fe+C+Cr', emoji:'⚔️', desc:'O aço que não enferruja! O cromo forma uma camada protetora invisível. Tesoura, talheres, navios!', effect:'metal' },
+    { ing:['Ag','Au'], name:'Eletrum (Liga Nobre)', formula:'Au+Ag', emoji:'💎', desc:'Liga natural de ouro e prata usada nas primeiras moedas da história, na Grécia Antiga!', effect:'metal' },
+    { ing:['Fe','S'], name:'Pirita', formula:'FeS₂', emoji:'✨', desc:'O Ouro dos Tolos! Enganou muitos mineradores por sua cor dourada. Mas é belo e precioso à sua forma!', effect:'metal' },
+    { ing:['Fe','Ni'], name:'Permalloy', formula:'Fe+Ni', emoji:'🧲', desc:'Liga supermagnética usada em transformadores e escudos magnéticos. Alta permeabilidade!', effect:'metal' },
+    { ing:['Fe','Nd'], name:'Ímã de Neodímio', formula:'Nd₂Fe₁₄B', emoji:'🧲', desc:'O ímã permanente mais poderoso do mundo! Tão forte que pode quebrar dedos. Usado em motores EV!', effect:'metal' },
+    // ORGANIC
+    { ing:['C','H','N','O'], name:'Matéria Orgânica (DNA)', formula:'C+H+N+O', emoji:'🧬', desc:'Os 4 elementos da vida! Carbono, Hidrogênio, Nitrogênio e Oxigênio formam o DNA de todos os seres!', effect:'organic' },
+    { ing:['C','Ca'], name:'Carbeto de Cálcio', formula:'CaC₂', emoji:'⚡', desc:'Reage com a água produzindo acetileno — gás usado em maçaricos de soldagem! Altamente combustível!', effect:'electric' },
+    // EXPLOSIONS
+    { ing:['K','O'], name:'Explosão de Potássio!', formula:'K₂O', emoji:'💥', desc:'BOOM! Potássio reage violentamente com oxigênio e explode! É por isso que é guardado em óleo.', effect:'explosion' },
+    { ing:['Na','O'], name:'Explosão de Sódio!', formula:'Na₂O', emoji:'💥', desc:'BOOM! Como o potássio, sódio explode ao reagir. Jogá-lo na água é ainda mais dramático!', effect:'explosion' },
+    // NUCLEAR
+    { ing:['U','U'], name:'Fissão em Cadeia', formula:'²³⁵U + n', emoji:'☢️', desc:'Urânio-235 absorve um nêutron e se divide, liberando 3 nêutrons que dividem mais átomos... Reator nuclear!', effect:'nuclear' },
+    { ing:['Pu','U'], name:'BOMBA NUCLEAR', formula:'Pu + ²³⁵U', emoji:'💣', desc:'⚠️ A arma mais destrutiva da humanidade. Uma bomba atômica combina Plutônio e Urânio em massa crítica. Hiroshima. Nagasaki. JAMAIS NOVAMENTE.', effect:'nuclear_bomb' },
+    { ing:['Ac','U'], name:'Decaimento Radioativo', formula:'²³⁸U → Pb', emoji:'☢️', desc:'Urânio decai lentamente por bilhões de anos, transformando-se em chumbo. Datamos fósseis assim!', effect:'nuclear' },
+    { ing:['Ac','Pu','U'], name:'BOMBA TERMONUCLEAR', formula:'H + ²³⁵U + Pu', emoji:'🔥☢️', desc:'⚠️⚠️ A arma mais poderosa já construída. Uma bomba H combina fissão E fusão nuclear. Poder de extermínio continental. Uma tragédia da humanidade.', effect:'nuclear_bomb' },
+];
+
+let labSlots = [null, null, null];
+let discoveredRecipes = [];
+let labCurrentTab = 'elements';
+
+function openAlchemy() {
+    renderLabElements();
+    renderRecipeList();
+    document.getElementById('recipeCount').innerText = '('+discoveredRecipes.length+')';
+    showScreen('alchemy');
+}
+
+function closeAlchemy() {
+    hideScreen('alchemy');
+}
+
+function renderLabElements() {
+    const grid = document.getElementById('labElGrid');
+    let html = '';
+    const collected = elements.slice(0, unlocked - 1);
+    collected.forEach((el, i) => {
+        const color = el.color || '#ccc';
+        const isSelected = labSlots.some(s => s && s.symbol === el.symbol);
+        html += `<div class="lab-el-btn${isSelected?' selected':''}" style="background:${color}20; border-color:${isSelected?'#f1c40f':'#555'};" data-sym="${el.symbol}" data-name="${el.name}">
+            <span style="font-size:18px; font-weight:bold; color:#fff;">${el.symbol}</span>
+            <span>${el.name.substring(0,4)}</span>
+        </div>`;
+    });
+    if(!html) html = '<div style="grid-column:span 6; text-align:center; font-family:VT323,monospace; color:#555; padding:20px;">Colete elementos primeiro!</div>';
+    grid.innerHTML = html;
+    grid.querySelectorAll('.lab-el-btn').forEach(btn => {
+        btn.addEventListener('pointerdown', function(e) {
+            e.preventDefault();
+            addToLabSlot(this.dataset.sym, this.dataset.name);
+        });
+    });
+}
+
+function addToLabSlot(sym, name) {
+    // Find first empty slot
+    let slot = labSlots.findIndex(s => s === null);
+    if(slot === -1) return; // all full
+    labSlots[slot] = { symbol: sym, name: name };
+    updateSlotUI();
+    renderLabElements();
+}
+
+function clearLabSlot(idx) {
+    labSlots[idx] = null;
+    updateSlotUI();
+    renderLabElements();
+}
+
+function updateSlotUI() {
+    for(let i = 0; i < 3; i++) {
+        const el = document.getElementById('cs'+i);
+        const sym = document.getElementById('cs'+i+'sym');
+        const nm = document.getElementById('cs'+i+'name');
+        if(labSlots[i]) {
+            el.classList.add('filled');
+            sym.innerText = labSlots[i].symbol;
+            nm.innerText = labSlots[i].name.substring(0, 8);
+        } else {
+            el.classList.remove('filled');
+            sym.innerText = '?';
+            nm.innerText = 'vazio';
+        }
+    }
+}
+
+function tryAlchemySynth() {
+    const filledSlots = labSlots.filter(s => s !== null);
+    if(filledSlots.length < 2) {
+        showReactionResult(false, '❌', 'Poucos Elementos', '', 'Adicione pelo menos 2 elementos para sintetizar!', 'none');
+        return;
+    }
+    const inputSyms = filledSlots.map(s => s.symbol).sort();
+
+    // Find matching recipe
+    let matched = null;
+    for(const recipe of RECIPES) {
+        const recipeSyms = [...recipe.ing].sort();
+        if(recipeSyms.length === inputSyms.length && recipeSyms.every((s,i) => s === inputSyms[i])) {
+            matched = recipe;
+            break;
+        }
+    }
+
+    if(matched) {
+        const isNew = !discoveredRecipes.includes(matched.name);
+        if(isNew) {
+            discoveredRecipes.push(matched.name);
+            document.getElementById('recipeCount').innerText = '('+discoveredRecipes.length+')';
+        }
+        showReactionResult(true, matched.emoji, matched.name + (isNew?' ✨ NOVA!':''), matched.formula, matched.desc, matched.effect);
+        triggerReactionEffect(matched.effect);
+        renderRecipeList();
+    } else {
+        showReactionResult(false, '❓', 'Reação Desconhecida', inputSyms.join(' + '), 'Esses elementos não reagem dessa forma. Tente outra combinação!', 'none');
+        shake = 5;
+    }
+}
+
+function showReactionResult(success, emoji, name, formula, desc, effect) {
+    const box = document.getElementById('reactionResult');
+    box.style.display = 'block';
+    box.className = success ? 'success' : 'fail';
+    document.getElementById('resEmoji').innerText = emoji;
+    document.getElementById('resName').innerText = name;
+    document.getElementById('resFormula').innerText = formula;
+    document.getElementById('resDesc').innerText = desc;
+
+    const colors = {
+        water:'#3498db', gas:'#bdc3c7', fire:'#e67e22', explosion:'#e74c3c',
+        acid:'#2ecc71', neutral:'#95a5a6', metal:'#7f8c8d', organic:'#27ae60',
+        electric:'#f1c40f', nuclear:'#00ff41', nuclear_bomb:'#ff0000', none:'#7f00ff'
+    };
+    box.style.borderColor = colors[effect] || '#7f00ff';
+}
+
+function triggerReactionEffect(effect) {
+    const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
+    const flash = document.getElementById('reactionFlash');
+
+    if(effect === 'fire') {
+        flash.style.background = 'radial-gradient(circle, rgba(255,100,0,0.3) 0%, transparent 70%)';
+        flash.style.opacity = '1'; setTimeout(() => flash.style.opacity = '0', 300);
+        for(let i=0; i<30; i++) createParticle(cx+(Math.random()-0.5)*200, cy+100+(Math.random()*100), Math.random()>0.5?'#ff6600':'#ffcc00', 1, 3+Math.random()*4);
+        shake = 8;
+    } else if(effect === 'water') {
+        flash.style.background = 'radial-gradient(circle, rgba(52,152,219,0.3) 0%, transparent 70%)';
+        flash.style.opacity = '1'; setTimeout(() => flash.style.opacity = '0', 300);
+        for(let i=0; i<25; i++) createParticle(cx+(Math.random()-0.5)*300, cy+(Math.random()-0.5)*200, '#3498db', 1, 2);
+        shake = 3;
+    } else if(effect === 'gas') {
+        flash.style.background = 'radial-gradient(circle, rgba(189,195,199,0.3) 0%, transparent 70%)';
+        flash.style.opacity = '1'; setTimeout(() => flash.style.opacity = '0', 400);
+        for(let i=0; i<20; i++) createParticle(cx+(Math.random()-0.5)*200, cy+(Math.random()-0.5)*150, 'rgba(200,200,255,0.8)', 1, 1.5);
+    } else if(effect === 'acid') {
+        flash.style.background = 'radial-gradient(circle, rgba(46,204,113,0.35) 0%, transparent 70%)';
+        flash.style.opacity = '1'; setTimeout(() => flash.style.opacity = '0', 300);
+        for(let i=0; i<20; i++) createParticle(cx+(Math.random()-0.5)*200, cy+(Math.random()-0.5)*150, '#2ecc71', 1, 2);
+        shake = 5;
+    } else if(effect === 'explosion') {
+        flash.style.background = 'radial-gradient(circle, rgba(255,50,0,0.7) 0%, transparent 60%)';
+        flash.style.opacity = '1'; setTimeout(() => flash.style.opacity = '0', 200);
+        for(let i=0; i<60; i++) createParticle(cx+(Math.random()-0.5)*100, cy+(Math.random()-0.5)*100, Math.random()>0.5?'#ff4400':'#ffcc00', 1, 6+Math.random()*8);
+        shake = 30;
+    } else if(effect === 'metal') {
+        flash.style.background = 'radial-gradient(circle, rgba(150,150,150,0.3) 0%, transparent 70%)';
+        flash.style.opacity = '1'; setTimeout(() => flash.style.opacity = '0', 300);
+        for(let i=0; i<15; i++) createParticle(cx+(Math.random()-0.5)*150, cy+(Math.random()-0.5)*100, Math.random()>0.5?'#95a5a6':'#f1c40f', 1, 3);
+        shake = 10;
+    } else if(effect === 'organic') {
+        flash.style.background = 'radial-gradient(circle, rgba(39,174,96,0.4) 0%, transparent 70%)';
+        flash.style.opacity = '1'; setTimeout(() => flash.style.opacity = '0', 400);
+        for(let i=0; i<30; i++) createParticle(cx+(Math.random()-0.5)*250, cy+(Math.random()-0.5)*200, '#27ae60', 1, 2);
+    } else if(effect === 'electric') {
+        flash.style.background = 'radial-gradient(circle, rgba(241,196,15,0.6) 0%, transparent 60%)';
+        flash.style.opacity = '1'; setTimeout(() => { flash.style.opacity='0.5'; setTimeout(()=>flash.style.opacity='0',100); }, 100);
+        for(let i=0; i<25; i++) createParticle(cx+(Math.random()-0.5)*200, cy+(Math.random()-0.5)*150, '#f1c40f', 1, 4);
+        shake = 15;
+    } else if(effect === 'nuclear') {
+        flash.style.background = 'radial-gradient(circle, rgba(0,255,65,0.5) 0%, transparent 60%)';
+        flash.style.opacity = '1'; setTimeout(() => flash.style.opacity = '0', 500);
+        for(let i=0; i<50; i++) createParticle(cx+(Math.random()-0.5)*200, cy+(Math.random()-0.5)*200, Math.random()>0.5?'#00ff41':'#7fff00', 1, 4+Math.random()*5);
+        shake = 20;
+    } else if(effect === 'nuclear_bomb') {
+        // Full screen flash + heavy shake + particle storm
+        flash.style.background = 'radial-gradient(circle, rgba(255,255,200,1) 0%, rgba(255,100,0,0.8) 40%, transparent 70%)';
+        flash.style.opacity = '1';
+        setTimeout(() => { flash.style.opacity = '0.6'; }, 100);
+        setTimeout(() => { flash.style.opacity = '0.3'; }, 300);
+        setTimeout(() => { flash.style.opacity = '0'; }, 800);
+        for(let i=0; i<100; i++) createParticle(cx+(Math.random()-0.5)*400, cy+(Math.random()-0.5)*400, ['#ff6600','#ffcc00','#ff0000','#ffffff'][Math.floor(Math.random()*4)], 1, 8+Math.random()*12);
+        shake = 60;
+    }
+}
+
+function renderRecipeList() {
+    const list = document.getElementById('recipeList');
+    const discovered = discoveredRecipes.length;
+    document.getElementById('recipeDiscovered').innerText = discovered + ' / ' + RECIPES.length + ' receitas descobertas';
+    let html = '';
+    RECIPES.forEach(r => {
+        const isDiscovered = discoveredRecipes.includes(r.name);
+        html += `<div class="recipe-entry ${isDiscovered?'':'locked'}">
+            <div class="re-emoji">${isDiscovered ? r.emoji : '❓'}</div>
+            <div class="re-info">
+                <div class="re-name">${isDiscovered ? r.name : '???'}</div>
+                <div class="re-formula">${isDiscovered ? r.ing.join(' + ') + ' → ' + r.formula : '? + ? + ?'}</div>
+            </div>
+        </div>`;
+    });
+    list.innerHTML = html;
+}
+
+function switchLabTab(tab) {
+    labCurrentTab = tab;
+    document.getElementById('tabElementsPanel').style.display = tab==='elements' ? 'block' : 'none';
+    document.getElementById('tabRecipesPanel').style.display = tab==='recipes' ? 'block' : 'none';
+    document.querySelectorAll('.lab-tab').forEach(t => t.classList.toggle('active', t.dataset.tab===tab));
+}
+
+// ===================== INIT =====================
+window.addEventListener('load', function() {
+    resize();
+    setupControls();
+});
+</script>
+</body>
+</html>
+<!-- This is a pure HTML5 canvas game, no React needed -->
